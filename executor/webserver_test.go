@@ -1,9 +1,11 @@
 package executor
 
 import (
-	"github.com/gin-gonic/gin"
+	"fmt"
 	"net/http"
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -96,12 +98,23 @@ type TestWebServer struct {
 	Middleware *TestWebMiddleware  `di:"^"`
 }
 
-func (s *TestWebServer) SetupRouter(router gin.IRouter) {
-	router.GET("", s.GetRoot)
+func (s *TestWebServer) Get(ctx WebContext) {
+	ctx.IndentedJSON(http.StatusOK, "/")
 }
 
-func (s *TestWebServer) GetRoot(ctx *gin.Context) {
-	ctx.IndentedJSON(http.StatusOK, "hello")
+func (s *TestWebServer) GetRoot(ctx WebContext) {
+	ctx.IndentedJSON(http.StatusOK, "/root")
+}
+
+func (s *TestWebServer) GetHello(ctx struct {
+	WebContext `http:"" description:""`
+	a          float32
+}) {
+	ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/hello %f", ctx.a))
+}
+
+func (s *TestWebServer) Test() {
+
 }
 
 type TestWebController1 struct {
@@ -110,11 +123,10 @@ type TestWebController1 struct {
 	Ctrl2 *TestWebController2 `di:"^"`
 }
 
-func (c *TestWebController1) GetUser(p struct {
-	ctx *WebContext `http:"method=get, path=" description="取得使用者資訊"`
+func (c *TestWebController1) GetUser(ctx struct {
+	WebContext `http:"me, method=get, path=" description="取得使用者資訊"`
 }) {
-	ctx := p.ctx
-	ctx.Get("")
+	ctx.IndentedJSON(http.StatusOK, "/user")
 }
 
 type TestWebController2 struct {
@@ -132,6 +144,18 @@ func TestWebServerExec(t *testing.T) {
 		//dij.EnableLog()
 		if err := LaunchGin(wsTyp); err != nil {
 			t.Error(err)
+		}
+	})
+}
+
+// go test ./executor -v -run TestRegex
+func TestRegex(t *testing.T) {
+	t.Run("request name and method", func(t *testing.T) {
+		re := regexp.MustCompile(`^(get|post|put|patch|delete|head|connect|options|trace)`)
+		if v := re.Find([]byte(strings.ToLower("DeleteHello"))); len(v) == 0 {
+			t.Error("error regex: ", string(v))
+		} else {
+			t.Log(string(v))
 		}
 	})
 }
