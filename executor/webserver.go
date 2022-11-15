@@ -55,7 +55,7 @@ func (w *WebServer) iAmAWebServer() {
 
 type WebControllerSpec interface {
 	iAmAWebController()
-	SetupRouter(router gin.IRouter, others ...any)
+	//SetupRouter(router gin.IRouter, others ...any)
 }
 
 type WebController struct {
@@ -94,12 +94,29 @@ func (c *WebCtlParamDef) preferredText(key string, allowedValOnly bool, allowedF
 	return ""
 }
 
-func (w *WebController) SetupRouter(router gin.IRouter, others ...any) {
-	//fmt.Printf("Should setup router?\n")
+//func (w *WebController) SetupRouter(router gin.IRouter, others ...any) {
+//fmt.Printf("Should setup router?\n")
+//setupHandlers(router, others[0])
+//}
+
+type handlerWrapper struct {
+	method  string
+	path    string
+	handler func(*gin.Context)
+}
+
+func setupHandlers(routes gin.IRoutes, instPtr any) {
+	wrappers := createHandlers(instPtr, true)
+	for _, w := range wrappers {
+		routes.Handle(w.method, w.path, w.handler)
+	}
+}
+
+func createHandlers(instPtr any, forReq bool) []handlerWrapper {
+	wrappers := make([]handlerWrapper, 0)
 	webCtxType := reflect.TypeOf(WebContext{})
-	instPtr := others[0]
 	instPtrType := reflect.TypeOf(instPtr)
-	httpMethodRegex := regexp.MustCompile(`^(get|post|put|patch|delete|head|connect|options|trace)`)
+	handleMethodRegex := regexp.MustCompile(Ife(forReq, `^(get|post|put|patch|delete|head|connect|options|trace)`, `^(handle)`))
 	// TODO: how to deal routing for static pages
 	for i := 0; i < instPtrType.NumMethod(); i++ {
 		method := instPtrType.Method(i)
@@ -110,7 +127,7 @@ func (w *WebController) SetupRouter(router gin.IRouter, others ...any) {
 				if IsTypeOfWebContext(param1Typ) && param1Typ.Kind() == reflect.Struct {
 					methodName := method.Name
 					lowerMethodName := strings.ToLower(methodName)
-					reqMethod := string(httpMethodRegex.Find([]byte(lowerMethodName)))
+					reqMethod := string(handleMethodRegex.Find([]byte(lowerMethodName)))
 					reqPath := lowerMethodName[len(reqMethod):]
 					param1Defs := make([]WebCtlParamDef, 0)
 					if param1Typ != webCtxType {
@@ -129,8 +146,8 @@ func (w *WebController) SetupRouter(router gin.IRouter, others ...any) {
 							if field.Anonymous && field.Type == webCtxType {
 								// extended/embedded struct, retrieve request name and method from http tag
 								if existsTag {
-									if path := def.preferredText("path", true, false); len(path) > 0 {
-										reqPath = path
+									if path := def.preferredText(Ife(forReq, "path", "name"), true, false); len(path) > 0 {
+										reqPath = string(handleMethodRegex.Find([]byte(path)))
 									}
 									if attr, b := diTag.FirstAttrsWithKey("method"); b {
 										if len(attr.Val) > 0 {
@@ -143,69 +160,77 @@ func (w *WebController) SetupRouter(router gin.IRouter, others ...any) {
 							}
 							param1Defs = append(param1Defs, def)
 						}
-						router.Handle(strings.ToUpper(reqMethod), reqPath, func(c *gin.Context) {
-							param1InstPtrVal := reflect.New(param1Typ)
-							param1InstVal := param1InstPtrVal.Elem()
-							get := func(key string, typ reflect.Type) (data any, exists bool) {
-								var text string
-								if text, exists = c.GetQuery(key); !exists {
-									if text, exists = c.GetPostForm(key); !exists {
-										if text = c.Param(key); len(text) == 0 {
-											return nil, false
+						wrappers = append(wrappers, handlerWrapper{
+							strings.ToUpper(reqMethod),
+							reqPath,
+							func(c *gin.Context) {
+								param1InstPtrVal := reflect.New(param1Typ)
+								param1InstVal := param1InstPtrVal.Elem()
+								get := func(key string, typ reflect.Type) (data any, exists bool) {
+									var text string
+									if text, exists = c.GetQuery(key); !exists {
+										if text, exists = c.GetPostForm(key); !exists {
+											if text = c.Param(key); len(text) == 0 {
+												return nil, false
+											}
 										}
 									}
+									instPtrVal := reflect.New(typ)
+									if err := json.Unmarshal([]byte(text), instPtrVal.Interface()); err != nil {
+										fmt.Printf("parse key:'%s' with value:'%s' incorrectly, %v\n", key, text, err)
+									}
+									return instPtrVal.Elem().Interface(), true
 								}
-								instPtrVal := reflect.New(typ)
-								if err := json.Unmarshal([]byte(text), instPtrVal.Interface()); err != nil {
-									fmt.Printf("parse key:'%s' with value:'%s' incorrectly, %v\n", key, text, err)
-								}
-								return instPtrVal.Elem().Interface(), true
-							}
 
-							for _, def := range param1Defs {
-								fieldSpec := def.fieldSpec
-								field := param1InstVal.Field(def.index)
-								if fieldSpec.Anonymous && fieldSpec.Type == webCtxType {
-									ctx := WebContext{c}
-									field.Set(reflect.ValueOf(ctx))
-								} else {
-									if val, ok := get(def.preferredName, def.fieldSpec.Type); ok {
-										fieldName := fieldSpec.Name
-										if reflect.TypeOf(val) == def.fieldSpec.Type {
-											if len(fieldName) == 0 || fieldName[0] == '_' {
-												// ignore
-											} else if fieldName[0] >= 'A' && fieldName[0] <= 'Z' {
-												field.Set(reflect.ValueOf(val))
-											} else {
-												dij.SetUnexportedField(field, val)
+								for _, def := range param1Defs {
+									fieldSpec := def.fieldSpec
+									field := param1InstVal.Field(def.index)
+									if fieldSpec.Anonymous && fieldSpec.Type == webCtxType {
+										ctx := WebContext{c}
+										field.Set(reflect.ValueOf(ctx))
+									} else {
+										if val, ok := get(def.preferredName, def.fieldSpec.Type); ok {
+											fieldName := fieldSpec.Name
+											if reflect.TypeOf(val) == def.fieldSpec.Type {
+												if len(fieldName) == 0 || fieldName[0] == '_' {
+													// ignore
+												} else if fieldName[0] >= 'A' && fieldName[0] <= 'Z' {
+													field.Set(reflect.ValueOf(val))
+												} else {
+													dij.SetUnexportedField(field, val)
+												}
 											}
 										}
 									}
 								}
-							}
-							//fmt.Printf("I'm in")
-							_ = reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{param1InstVal})
+								//fmt.Printf("I'm in")
+								_ = reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{param1InstVal})
+							},
 						})
 					} else {
 						if len(reqMethod) == 0 {
 							continue
 						}
 						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, param1Typ.Name())
-						router.Handle(strings.ToUpper(reqMethod), reqPath, func(c *gin.Context) {
-							ctx := WebContext{c}
-							//fmt.Printf("I'm in")
-							_ = reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{reflect.ValueOf(ctx)})
+						wrappers = append(wrappers, handlerWrapper{
+							strings.ToUpper(reqMethod),
+							reqPath,
+							func(c *gin.Context) {
+								ctx := WebContext{c}
+								//fmt.Printf("I'm in")
+								_ = reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{reflect.ValueOf(ctx)})
+							},
 						})
 					}
 				}
 			}
 		}
 	}
+	return wrappers
 }
 
 type WebMiddlewareSpec interface {
 	iAmAWebMiddleware()
-	GetHandlers() []HandlerFunc
 }
 
 type WebMiddleware struct {
@@ -213,11 +238,6 @@ type WebMiddleware struct {
 
 func (m *WebMiddleware) iAmAWebMiddleware() {
 
-}
-
-func (m *WebMiddleware) GetHandlers() []HandlerFunc {
-	fmt.Printf("Should provide handlers?\n")
-	return nil
 }
 
 //func IsTypeOfWebServer(typ reflect.Type) bool {
@@ -395,7 +415,7 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 
 	router := gin.Default()
 
-	if err := setupRouter(instPtr, webServerType, router, &ref); err != nil {
+	if err := setupRouterHandlers(instPtr, webServerType, router, &ref); err != nil {
 		return nil, nil, err
 	}
 
@@ -414,7 +434,9 @@ func LaunchGin(webServerType reflect.Type, others ...any) error {
 	return engine.Run(addr)
 }
 
-func setupRouter(instPtr any, instType reflect.Type, router gin.IRouter, refPtr dij.DependencyReferencePtr) error {
+func setupRouterHandlers(instPtr any, instType reflect.Type, router gin.IRouter, refPtr dij.DependencyReferencePtr) error {
+	routers := router.(gin.IRoutes)
+	//
 	predecessor := make([]int, 0)
 	plugins := make([]int, 0)
 	extenders := make([]int, 0)
@@ -432,26 +454,8 @@ func setupRouter(instPtr any, instType reflect.Type, router gin.IRouter, refPtr 
 		}
 	}
 
-	// setup current router
-	if len(predecessor) != 1 {
-		return fmt.Errorf("struct '%s' should embeded web controller or web server.(%d)", instType.Name(), len(predecessor))
-	} else {
-		field := instType.Field(predecessor[0])
-		tag, exists := field.Tag.Lookup(HttpTagName)
-		if exists {
-			attrs := ParseStructTag(tag)
-			if attr, existingName := attrs.FirstAttrWithValOnly(); existingName {
-				router = router.Group(attr.Val)
-			} else if attr, exists := attrs.FirstAttrsWithKey("path"); exists {
-				router = router.Group(attr.Val)
-			}
-		}
-		ctrl := instPtr.(WebControllerSpec)
-		fmt.Printf("Set router for %v\n", instType)
-		ctrl.SetupRouter(router, instPtr)
-	}
-
-	// setup middlewares
+	// prepare middlewares
+	mwHdlWrappers := map[string]handlerWrapper{}
 	if len(plugins) > 0 {
 		for _, idx := range plugins {
 			field := instType.Field(idx)
@@ -477,16 +481,47 @@ func setupRouter(instPtr any, instType reflect.Type, router gin.IRouter, refPtr 
 			} else {
 				//fmt.Printf("middleware load from dij: %v\n", fieldTyp)
 			}
-			handlers := fieldIf.(WebMiddlewareSpec).GetHandlers()
-			if len(handlers) > 0 {
-				for _, handler := range handlers {
-					router.Use(func(c *gin.Context) {
-						// TODO: refine this
-						handler(&WebContext{c})
-					})
+			wrappers := createHandlers(fieldIf, false)
+			for _, w := range wrappers {
+				fmt.Printf("%v %v\n", w.method, w.path)
+				_, exists := mwHdlWrappers[w.path]
+				if exists {
+					return fmt.Errorf("middleware's handler '%s' is duplicated", w.path)
+				}
+				mwHdlWrappers[w.path] = w
+			}
+		}
+	}
+
+	// setup current router
+	if len(predecessor) != 1 {
+		return fmt.Errorf("struct '%s' should embeded web controller or web server.(%d)", instType.Name(), len(predecessor))
+	} else {
+		field := instType.Field(predecessor[0])
+		if tag, exists := field.Tag.Lookup(HttpTagName); exists {
+			attrs := ParseStructTag(tag)
+			if attr, existingName := attrs.FirstAttrWithValOnly(); existingName {
+				router = router.Group(attr.Val)
+			} else if attr, exists := attrs.FirstAttrsWithKey("path"); exists {
+				router = router.Group(attr.Val)
+			}
+			routers = router.(gin.IRoutes)
+			if attr, exists := attrs.FirstAttrsWithKey("middleware"); exists {
+				middlewares := strings.Split(attr.Val, ",")
+				for _, m := range middlewares {
+					name := strings.TrimSpace(m)
+					if w, b := mwHdlWrappers[name]; !b {
+						return fmt.Errorf("middleware's handler '%s' doesn't exist", name)
+					} else {
+						routers = routers.Use(w.handler)
+					}
 				}
 			}
 		}
+		fmt.Printf("Set router for %v\n", instType)
+		setupHandlers(routers, instPtr)
+		//ctrl := instPtr.(WebControllerSpec)
+		//ctrl.SetupRouter(router, instPtr)
 	}
 
 	// setup extenders
@@ -515,7 +550,7 @@ func setupRouter(instPtr any, instType reflect.Type, router gin.IRouter, refPtr 
 			} else {
 				//fmt.Printf("extenders load from dij: %v\n", fieldTyp)
 			}
-			if err := setupRouter(fieldIf, fieldTyp.Elem(), router, refPtr); err != nil {
+			if err := setupRouterHandlers(fieldIf, fieldTyp.Elem(), router, refPtr); err != nil {
 				return err
 			}
 		}

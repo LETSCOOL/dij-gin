@@ -92,10 +92,10 @@ func TestValidateWebType(t *testing.T) {
 }
 
 type TestWebServer struct {
-	WebServer `http:"" description:""`
+	WebServer `http:"middleware=abc" description:""`
 
-	ctrl1      *TestWebController1 `di:"^"`
-	Middleware *TestWebMiddleware  `di:"^"`
+	ctrl1 *TestWebController1 `di:"^"`
+	mdl1  *TestWebMiddleware  `di:"^"`
 }
 
 func (s *TestWebServer) Get(ctx WebContext) {
@@ -124,7 +124,7 @@ type TestWebController1 struct {
 }
 
 func (c *TestWebController1) GetUser(ctx struct {
-	WebContext `http:"me, method=get, path=" description="取得使用者資訊"`
+	WebContext `http:"me, method=get, middleware=" description="取得使用者資訊"`
 }) {
 	ctx.IndentedJSON(http.StatusOK, "/user")
 }
@@ -135,6 +135,13 @@ type TestWebController2 struct {
 
 type TestWebMiddleware struct {
 	WebMiddleware
+}
+
+func (m *TestWebMiddleware) HandleAbc(ctx struct {
+	WebContext `http:""`
+}) {
+	fmt.Printf("*** Hi i am abc ***\n")
+	//ctx.Next()
 }
 
 // go test ./executor -v -run TestWebServerExec
