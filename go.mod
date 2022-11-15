@@ -1,4 +1,4 @@
-module github.com/yuchi518/dij-gin
+module github.com/letscool/dij-gin
 
 replace github.com/letscool/lc-go => ../lc-go
 
