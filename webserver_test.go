@@ -1,4 +1,4 @@
-package executor
+package dij_gin
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ type TestByWebMiddlewareValue struct {
 	WebMiddleware
 }
 
-// go test ./executor -v -run TestValidateWebType
+// go test ./ -v -run TestValidateWebType
 func TestValidateWebType(t *testing.T) {
 	//dij.EnableLog()
 	t.Run("TestByWebServerValue", func(t *testing.T) {
@@ -144,7 +144,7 @@ func (m *TestWebMiddleware) HandleAbc(ctx struct {
 	//ctx.Next()
 }
 
-// go test ./executor -v -run TestWebServerExec
+// go test ./ -v -run TestWebServerExec
 func TestWebServerExec(t *testing.T) {
 	t.Run("dij", func(t *testing.T) {
 		wsTyp := reflect.TypeOf(TestWebServer{})
@@ -155,7 +155,7 @@ func TestWebServerExec(t *testing.T) {
 	})
 }
 
-// go test ./executor -v -run TestRegex
+// go test ./ -v -run TestRegex
 func TestRegex(t *testing.T) {
 	t.Run("request name and method", func(t *testing.T) {
 		re := regexp.MustCompile(`^(get|post|put|patch|delete|head|connect|options|trace)`)
