@@ -139,6 +139,19 @@ func (c *TestWebController1) GetUserMe(ctx struct {
 	ctx.IndentedJSON(http.StatusOK, "/user")
 }
 
+func (s *TestWebController1) GetUserById(ctx struct {
+	WebContext `http:":id/profile, method=get" description="取得使用者資訊"`
+	id         int
+}) (result struct {
+	data *string `resp:"200,"`
+}) {
+	ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/user/%d", ctx.id))
+	fmt.Printf("Id: %d\n", ctx.id)
+	a := "234"
+	result.data = &a
+	return
+}
+
 type TestWebController2 struct {
 	WebController
 }
@@ -175,13 +188,4 @@ func TestRegex(t *testing.T) {
 			t.Log(string(v))
 		}
 	})
-}
-
-func Qq(ctx struct {
-	WebContext `http:"me, method=get, middleware=" description="取得使用者資訊"`
-	_          string `resp:"status=400"`
-	_          error  `resp:"status=300"`
-}) any {
-
-	return nil
 }

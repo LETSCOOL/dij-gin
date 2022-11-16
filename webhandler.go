@@ -69,11 +69,11 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 								// extended/embedded struct, retrieve request name and method from http tag
 								if existsTag {
 									if path := def.preferredText(baseKey, true, false); len(path) > 0 {
-										reqPath = string(handleMethodRegex.Find([]byte(path)))
+										reqPath = path
 									}
 									if attr, b := diTag.FirstAttrsWithKey("method"); b {
 										if len(attr.Val) > 0 {
-											reqMethod = strings.ToUpper(attr.Val)
+											reqMethod = strings.ToUpper(string(handleMethodRegex.Find([]byte(attr.Val))))
 										}
 									}
 								}
