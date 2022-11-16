@@ -113,8 +113,18 @@ func (s *TestWebServer) GetHello(ctx struct {
 	ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/hello %f", ctx.a))
 }
 
-func (s *TestWebServer) Test() {
-
+// PostJson shows post request with json style
+// curl: curl -X POST http://localhost:8000/json -H 'Content-Type: application/json' -d '{"a":123,"b":"data+b"}'
+func (s *TestWebServer) PostJson(ctx struct {
+	WebContext `http:"" description:""`
+	json       struct {
+		A int    `form:"a" json:"a" binding:"required"`
+		B string `form:"b" json:"b" binding:"required"`
+	}
+}) {
+	fmt.Printf("json: %v\n", ctx.json)
+	//fmt.Printf("a: %d, b: %s\n", ctx.a, ctx.b)
+	ctx.IndentedJSON(http.StatusOK, ctx.json)
 }
 
 type TestWebController1 struct {
@@ -123,7 +133,7 @@ type TestWebController1 struct {
 	Ctrl2 *TestWebController2 `di:"^"`
 }
 
-func (c *TestWebController1) GetUser(ctx struct {
+func (c *TestWebController1) GetUserMe(ctx struct {
 	WebContext `http:"me, method=get, middleware=" description="取得使用者資訊"`
 }) {
 	ctx.IndentedJSON(http.StatusOK, "/user")
@@ -140,7 +150,7 @@ type TestWebMiddleware struct {
 func (m *TestWebMiddleware) HandleAbc(ctx struct {
 	WebContext `http:""`
 }) {
-	fmt.Printf("*** Hi i am abc ***\n")
+	fmt.Printf("*** Hi i am Abc Middleware ***\n")
 	//ctx.Next()
 }
 
@@ -165,4 +175,13 @@ func TestRegex(t *testing.T) {
 			t.Log(string(v))
 		}
 	})
+}
+
+func Qq(ctx struct {
+	WebContext `http:"me, method=get, middleware=" description="取得使用者資訊"`
+	_          string `resp:"status=400"`
+	_          error  `resp:"status=300"`
+}) any {
+
+	return nil
 }
