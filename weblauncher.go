@@ -16,11 +16,6 @@ const (
 	WebConfigKey         = "webserver.config"
 )
 
-//func (w *WebController) SetupRouter(router gin.IRouter, others ...any) {
-//fmt.Printf("Should setup router?\n")
-//setupHandlers(router, others[0])
-//}
-
 func setupHandlers(routes gin.IRoutes, instPtr any) {
 	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq)
 	for _, w := range wrappers {
@@ -170,8 +165,8 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router gin.IRouter,
 		}
 		fmt.Printf("Set router for %v\n", instType)
 		setupHandlers(routers, instPtr)
-		//ctrl := instPtr.(WebControllerSpec)
-		//ctrl.SetupRouter(router, instPtr)
+		ctrl := instPtr.(WebControllerSpec)
+		ctrl.SetupRouter(router, instPtr)
 	}
 
 	// setup extenders

@@ -6,7 +6,7 @@ go 1.19
 
 require (
 	github.com/gin-gonic/gin v1.8.1
-	github.com/letscool/lc-go v0.0.4
+	github.com/letscool/lc-go v0.0.5
 )
 
 require (

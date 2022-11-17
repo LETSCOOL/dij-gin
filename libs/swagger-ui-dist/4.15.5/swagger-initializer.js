@@ -3,17 +3,18 @@ window.onload = function() {
 
   // the following lines will be replaced by docker/configurator, when it runs in a docker-container
   window.ui = SwaggerUIBundle({
-    url: "https://petstore.swagger.io/v2/swagger.json",
+    url: "swagger.json",
     dom_id: '#swagger-ui',
     deepLinking: true,
     presets: [
       SwaggerUIBundle.presets.apis,
-      SwaggerUIStandalonePreset
+      SwaggerUIStandalonePreset,
     ],
     plugins: [
-      SwaggerUIBundle.plugins.DownloadUrl
+      //SwaggerUIBundle.plugins.DownloadUrl
     ],
-    layout: "StandaloneLayout"
+    //layout: "StandaloneLayout"
+    layout: "BaseLayout"
   });
 
   //</editor-fold>

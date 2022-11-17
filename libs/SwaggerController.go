@@ -1,0 +1,47 @@
+package libs
+
+import (
+	"embed"
+	. "github.com/letscool/dij-gin"
+	"github.com/letscool/lc-go/io"
+	"io/fs"
+	"net/http"
+)
+
+// content holds our static web server content.
+//
+//go:embed swagger-ui-dist/4.15.5/*
+var content embed.FS
+
+//go:embed swagger.json
+var swaggerJson string
+
+type SwaggerController struct {
+	WebController `http:""`
+}
+
+func (s *SwaggerController) Open(name string) (fs.File, error) {
+	if name == "swagger.json" || name == "./swagger.json" {
+		return io.NewRoMemFile("swagger.json", []byte(swaggerJson)), nil
+	}
+
+	fSys, err := fs.Sub(content, "swagger-ui-dist/4.15.5")
+	if err != nil {
+		return nil, err
+	}
+
+	return fSys.Open(name)
+}
+
+func (s *SwaggerController) SetupRouter(router WebRouter, _ ...any) {
+	//http.FileSystem()
+	//fSys, err := fs.Sub(content, "swagger-ui-dist/4.15.5")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	router.StaticFS("docs", http.FS(s))
+	//router.GET(".docs/swagger.json", func(ctx *gin.Context) {
+	//	ctx.String(200, swaggerJson)
+	//})
+
+}

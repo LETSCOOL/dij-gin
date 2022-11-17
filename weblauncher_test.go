@@ -1,7 +1,9 @@
-package dij_gin
+package dij_gin_test
 
 import (
 	"fmt"
+	. "github.com/letscool/dij-gin"
+	"github.com/letscool/dij-gin/libs"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -94,8 +96,9 @@ func TestValidateWebType(t *testing.T) {
 type TestWebServer struct {
 	WebServer `http:"middleware=abc" description:""`
 
-	ctrl1 *TestWebController1 `di:"^"`
-	mdl1  *TestWebMiddleware  `di:"^"`
+	ctrl1   *TestWebController1     `di:"^"`
+	mdl1    *TestWebMiddleware      `di:"^"`
+	swagger *libs.SwaggerController `di:""`
 }
 
 func (s *TestWebServer) Get(ctx WebContext) {
@@ -139,7 +142,7 @@ func (c *TestWebController1) GetUserMe(ctx struct {
 	ctx.IndentedJSON(http.StatusOK, "/user")
 }
 
-func (s *TestWebController1) GetUserById(ctx struct {
+func (c *TestWebController1) GetUserById(ctx struct {
 	WebContext `http:":id/profile, method=get" description="取得使用者資訊"`
 	id         int
 }) (result struct {
