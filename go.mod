@@ -1,12 +1,12 @@
 module github.com/letscool/dij-gin
 
-replace github.com/letscool/lc-go => ../lc-go
+//replace github.com/letscool/lc-go => ../lc-go
 
 go 1.19
 
 require (
 	github.com/gin-gonic/gin v1.8.1
-	github.com/letscool/lc-go v0.0.0-00010101000000-000000000000
+	github.com/letscool/lc-go v0.0.4
 )
 
 require (

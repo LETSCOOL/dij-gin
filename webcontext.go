@@ -41,10 +41,15 @@ func (c *WebContext) GetRequestValue(key string, instPtr any) (exists bool) {
 			}
 		}
 	}
-	if err := json.Unmarshal([]byte(text), instPtr); err != nil {
-		fmt.Printf("parse key:'%s' with value:'%s' incorrectly, %v\n", key, text, err)
+	if str, ok := instPtr.(*string); ok {
+		*str = text
+		return true
+	} else {
+		if err := json.Unmarshal([]byte(text), instPtr); err != nil {
+			fmt.Printf("parse key:'%s' with value:'%s' incorrectly, %v\n", key, text, err)
+		}
+		return true
 	}
-	return true
 }
 
 func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type) (data any, exists bool) {
@@ -56,9 +61,14 @@ func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type) (data 
 			}
 		}
 	}
-	instPtrVal := reflect.New(typ)
-	if err := json.Unmarshal([]byte(text), instPtrVal.Interface()); err != nil {
-		fmt.Printf("parse key:'%s' with value:'%s' incorrectly, %v\n", key, text, err)
+	switch typ.Kind() {
+	case reflect.String:
+		return text, true
+	default:
+		instPtrVal := reflect.New(typ)
+		if err := json.Unmarshal([]byte(text), instPtrVal.Interface()); err != nil {
+			fmt.Printf("parse key:'%s' with value:'%s' incorrectly, %v\n", key, text, err)
+		}
+		return instPtrVal.Elem().Interface(), true
 	}
-	return instPtrVal.Elem().Interface(), true
 }
