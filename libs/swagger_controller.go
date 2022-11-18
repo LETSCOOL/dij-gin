@@ -13,7 +13,7 @@ import (
 //go:embed swagger-ui-dist/4.15.5/*
 var content embed.FS
 
-//go:embed swagger.json
+//go:embed swagger_example.json
 var swaggerJson string
 
 type SwaggerController struct {
