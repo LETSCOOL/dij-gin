@@ -1,3 +1,7 @@
+// Copyright 2022 Yuchi Chen. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file.
+
 package dij_gin
 
 import (
@@ -14,6 +18,7 @@ const (
 	DefaultWebServerPort = 8000
 	HttpTagName          = "http"
 	WebConfigKey         = "webserver.config"
+	WebSpecRecord        = "webserver.record"
 )
 
 func setupHandlers(routes gin.IRoutes, instPtr any) {
@@ -30,9 +35,10 @@ func generateOutputData(c *gin.Context, method string, output []reflect.Value) {
 }
 
 type WebServerConfig struct {
-	address string
-	port    int
-	maxConn int
+	address           string
+	port              int
+	maxConn           int
+	enabledSpecRecord bool
 }
 
 func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.DependencyReferencePtr, error) {
