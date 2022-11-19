@@ -6,6 +6,7 @@ package libs
 
 import (
 	"embed"
+	"encoding/json"
 	. "github.com/letscool/dij-gin"
 	"github.com/letscool/lc-go/io"
 	"io/fs"
@@ -26,7 +27,11 @@ type SwaggerController struct {
 
 func (s *SwaggerController) Open(name string) (fs.File, error) {
 	if name == "swagger.json" || name == "./swagger.json" {
-		return io.NewRoMemFile("swagger.json", []byte(swaggerJson)), nil
+		data, err := json.Marshal(s.Spec)
+		if err != nil {
+			return nil, err
+		}
+		return io.NewRoMemFile("swagger.json", data), nil
 	}
 
 	fSys, err := fs.Sub(content, "swagger-ui-dist/4.15.5")

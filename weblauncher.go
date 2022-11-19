@@ -7,6 +7,7 @@ package dij_gin
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/letscool/dij-gin/spec"
 	"github.com/letscool/lc-go/dij"
 	. "github.com/letscool/lc-go/lg"
 	"log"
@@ -18,7 +19,7 @@ const (
 	DefaultWebServerPort = 8000
 	HttpTagName          = "http"
 	WebConfigKey         = "webserver.config"
-	WebSpecRecord        = "webserver.record"
+	WebSpecRecord        = "webserver.spec.record"
 )
 
 func setupHandlers(routes gin.IRoutes, instPtr any) {
@@ -26,12 +27,6 @@ func setupHandlers(routes gin.IRoutes, instPtr any) {
 	for _, w := range wrappers {
 		routes.Handle(w.method, w.path, w.handler)
 	}
-}
-
-func generateOutputData(c *gin.Context, method string, output []reflect.Value) {
-	/*for _, d := range output {
-		c.JSON()
-	}*/
 }
 
 type WebServerConfig struct {
@@ -54,6 +49,23 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 		}
 	}
 	ref[WebConfigKey] = config
+	website := spec.WebSiteSpec{
+		Swagger: "2.0",
+		Info: &spec.Info{
+			License:        nil,
+			Contact:        nil,
+			Description:    "This site is still under construction.",
+			TermsOfService: "",
+			Title:          "A dij-gin base API",
+			Version:        "0.0.1",
+		},
+		Host:     "localhost",
+		BasePath: "",
+		Tags:     nil,
+		Schemes:  []string{"http", "https"},
+		Paths:    nil,
+	}
+	ref[WebSpecRecord] = &website
 
 	if !IsTypeOfWebServer(webServerType) {
 		return nil, nil, fmt.Errorf("the type(%v) is not a web server", webServerType)

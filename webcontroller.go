@@ -6,6 +6,7 @@ package dij_gin
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/letscool/dij-gin/spec"
 	"reflect"
 )
 
@@ -34,6 +35,7 @@ type WebControllerSpec interface {
 }
 
 type WebController struct {
+	Spec *spec.WebSiteSpec `di:"webserver.spec.record"`
 }
 
 func (w *WebController) iAmAWebController() {

@@ -163,6 +163,12 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 	return wrappers
 }
 
+func generateOutputData(c *gin.Context, method string, output []reflect.Value) {
+	/*for _, d := range output {
+		c.JSON()
+	}*/
+}
+
 type FieldDefOfHandlerBaseParam struct {
 	index         int
 	fieldSpec     reflect.StructField
