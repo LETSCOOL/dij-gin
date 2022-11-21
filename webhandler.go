@@ -16,9 +16,10 @@ import (
 )
 
 type HandlerWrapper struct {
-	method  string
-	path    string
-	handler func(*gin.Context)
+	method          string
+	path            string
+	middlewareNames []string
+	handler         gin.HandlerFunc
 }
 
 type HandlerWrapperPurpose int
@@ -52,11 +53,14 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 			if methodType.NumIn() == 2 && methodType.NumOut() <= 1 {
 				param1Typ := methodType.In(1)
 				if IsTypeOfWebContext(param1Typ) && param1Typ.Kind() == reflect.Struct {
+					// Only fit function with one parameter and the parameter extends WebContext.
 					methodName := method.Name
 					lowerMethodName := strings.ToLower(methodName)
 					reqMethod := string(handleMethodRegex.Find([]byte(lowerMethodName)))
 					reqPath := lowerMethodName[len(reqMethod):]
+					var middlewareNames []string
 					if param1Typ != webCtxType {
+						// this part extends WebContext, so it also should process tag information
 						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, param1Typ)
 						param1Defs := make([]FieldDefOfHandlerBaseParam, 0)
 						for f := 0; f < param1Typ.NumField(); f++ {
@@ -80,6 +84,11 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 											reqMethod = strings.ToUpper(string(handleMethodRegex.Find([]byte(attr.Val))))
 										}
 									}
+									if attr, exists := diTag.FirstAttrsWithKey("middleware"); exists {
+										middlewares := strings.Split(attr.Val, ",")
+										middlewareNames = append(middlewareNames, middlewares...)
+										fmt.Printf("middlewares: %v, diTag: %v", middlewares, diTag)
+									}
 								}
 							} else {
 								def.preferredName = def.preferredText("name", true, true)
@@ -89,6 +98,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 						wrappers = append(wrappers, HandlerWrapper{
 							strings.ToUpper(reqMethod),
 							reqPath,
+							middlewareNames,
 							func(c *gin.Context) {
 								param1InstPtrVal := reflect.New(param1Typ)
 								param1InstVal := param1InstPtrVal.Elem()
@@ -148,6 +158,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 						wrappers = append(wrappers, HandlerWrapper{
 							strings.ToUpper(reqMethod),
 							reqPath,
+							nil,
 							func(c *gin.Context) {
 								ctx := WebContext{c}
 								//fmt.Printf("I'm in")

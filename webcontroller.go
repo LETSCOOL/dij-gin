@@ -5,7 +5,6 @@
 package dij_gin
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/letscool/dij-gin/spec"
 	"reflect"
 )
@@ -21,10 +20,6 @@ func IsTypeOfWebController(typ reflect.Type) bool {
 	instIf := instPtrValue.Interface()
 	_, ok := instIf.(WebControllerSpec)
 	return ok
-}
-
-type WebRouter interface {
-	gin.IRouter
 }
 
 type WebControllerSpec interface {

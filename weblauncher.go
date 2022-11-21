@@ -22,32 +22,21 @@ const (
 	WebSpecRecord        = "webserver.spec.record"
 )
 
-func setupHandlers(routes gin.IRoutes, instPtr any) {
-	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq)
-	for _, w := range wrappers {
-		routes.Handle(w.method, w.path, w.handler)
-	}
-}
-
-type WebServerConfig struct {
-	address           string
-	port              int
-	maxConn           int
-	enabledSpecRecord bool
-}
-
 func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.DependencyReferencePtr, error) {
 	ref := dij.DependencyReference{}
-	config := WebServerConfig{}
+	config := NewWebConfig()
 	for _, other := range others {
 		otherTyp := reflect.TypeOf(other)
 		switch v := other.(type) {
-		case WebServerConfig:
+		case WebConfig:
+			config = &v
+		case *WebConfig:
 			config = v
 		default:
-			log.Println("No ideal about type:", otherTyp)
+			log.Println("No ideal about type:", otherTyp, " value:", other)
 		}
 	}
+	config.ApplyDefaultValues()
 	ref[WebConfigKey] = config
 	website := spec.WebSiteSpec{
 		Swagger: "2.0",
@@ -59,10 +48,10 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 			Title:          "A dij-gin base API",
 			Version:        "0.0.1",
 		},
-		Host:     "localhost",
-		BasePath: "",
+		Host:     Ife(config.Address == "", "localhost", config.Address),
+		BasePath: config.BasePath,
 		Tags:     nil,
-		Schemes:  []string{"http", "https"},
+		Schemes:  config.Schemes,
 		Paths:    nil,
 	}
 	ref[WebSpecRecord] = &website
@@ -86,18 +75,18 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 }
 
 func LaunchGin(webServerType reflect.Type, others ...any) error {
-	engine, refPtr, err := PrepareGin(webServerType, others)
+	engine, refPtr, err := PrepareGin(webServerType, others...)
 	if err != nil {
 		return err
 	}
 	v, _ := refPtr.Get(WebConfigKey)
-	config := v.(WebServerConfig)
+	config := v.(*WebConfig)
 
-	addr := fmt.Sprintf("%v:%d", config.address, Ife(config.port <= 0, DefaultWebServerPort, config.port))
+	addr := fmt.Sprintf("%v:%d", config.Address, Ife(config.Port <= 0, DefaultWebServerPort, config.Port))
 	return engine.Run(addr)
 }
 
-func setupRouterHandlers(instPtr any, instType reflect.Type, router gin.IRouter, refPtr dij.DependencyReferencePtr) error {
+func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, refPtr dij.DependencyReferencePtr) error {
 	routers := router.(gin.IRoutes)
 	//
 	predecessor := make([]int, 0)
@@ -172,19 +161,24 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router gin.IRouter,
 			if attr, exists := attrs.FirstAttrsWithKey("middleware"); exists {
 				middlewares := strings.Split(attr.Val, ",")
 				for _, m := range middlewares {
-					name := strings.TrimSpace(m)
-					if w, b := mwHdlWrappers[name]; !b {
-						return fmt.Errorf("middleware's handler '%s' doesn't exist", name)
-					} else {
-						routers = routers.Use(w.handler)
+					if name := strings.TrimSpace(m); len(name) > 0 {
+						if w, b := mwHdlWrappers[name]; !b {
+							return fmt.Errorf("middleware's handler '%s' doesn't exist", name)
+						} else {
+							routers = routers.Use(w.handler)
+						}
 					}
 				}
 			}
 		}
 		fmt.Printf("Set router for %v\n", instType)
-		setupHandlers(routers, instPtr)
-		ctrl := instPtr.(WebControllerSpec)
-		ctrl.SetupRouter(router, instPtr)
+		if webRoutes, ok := routers.(WebRoutes); ok {
+			setupRoutesHandlers(webRoutes, instPtr, mwHdlWrappers)
+			ctrl := instPtr.(WebControllerSpec)
+			ctrl.SetupRouter(router, instPtr)
+		} else {
+			log.Fatalln("IRoutes doesn't have BasePath??? Fix it.")
+		}
 	}
 
 	// setup extenders
@@ -221,4 +215,23 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router gin.IRouter,
 
 	// all done
 	return nil
+}
+
+// setupRoutesHandlers set routing path for controller
+func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper) {
+	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq)
+	for _, w := range wrappers {
+		var handlers []gin.HandlerFunc
+		for _, name := range w.middlewareNames {
+			if name = strings.TrimSpace(name); len(name) > 0 {
+				if h, b := mwHdlWrappers[name]; b {
+					handlers = append(handlers, h.handler)
+				} else {
+					log.Fatalf("middleware's handler '%s' doesn't exist", name)
+				}
+			}
+		}
+		handlers = append(handlers, w.handler)
+		routes.Handle(w.method, w.path, handlers...)
+	}
 }

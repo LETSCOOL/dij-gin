@@ -114,7 +114,7 @@ func (s *TestWebServer) GetRoot(ctx WebContext) {
 }
 
 func (s *TestWebServer) GetHello(ctx struct {
-	WebContext `http:"" description:""`
+	WebContext `http:"middleware=efg" description:""`
 	a          float32
 }) {
 	ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/hello %f", ctx.a))
@@ -174,12 +174,22 @@ func (m *TestWebMiddleware) HandleAbc(ctx struct {
 	//ctx.Next()
 }
 
+func (m *TestWebMiddleware) HandleEfg(ctx struct {
+	WebContext `http:""`
+}) {
+	fmt.Printf("*** Hi i am Efg Middleware ***\n")
+	//ctx.Next()
+}
+
 // go test ./ -v -run TestWebServerExec
 func TestWebServerExec(t *testing.T) {
 	t.Run("dij", func(t *testing.T) {
+		config := NewWebConfig().
+			UseHttpOnly().SetAddress("localhost")
+		t.Log(config)
 		wsTyp := reflect.TypeOf(TestWebServer{})
 		//dij.EnableLog()
-		if err := LaunchGin(wsTyp); err != nil {
+		if err := LaunchGin(wsTyp, config); err != nil {
 			t.Error(err)
 		}
 	})
