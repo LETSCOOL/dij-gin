@@ -87,8 +87,6 @@ func LaunchGin(webServerType reflect.Type, others ...any) error {
 }
 
 func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, refPtr dij.DependencyReferencePtr) error {
-	routers := router.(gin.IRoutes)
-	//
 	predecessor := make([]int, 0)
 	plugins := make([]int, 0)
 	extenders := make([]int, 0)
@@ -149,6 +147,8 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 	if len(predecessor) != 1 {
 		return fmt.Errorf("struct '%s' should embeded web controller or web server.(%d)", instType.Name(), len(predecessor))
 	} else {
+		// TODO: base controller has some middlewares installed, and extended controllers also inherited those middlewares, why? fix it ????
+		routers := router.(gin.IRoutes)
 		field := instType.Field(predecessor[0])
 		if tag, exists := field.Tag.Lookup(HttpTagName); exists {
 			attrs := ParseStructTag(tag)
