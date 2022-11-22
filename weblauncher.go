@@ -38,6 +38,7 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 	}
 	config.ApplyDefaultValues()
 	ref[WebConfigKey] = config
+	addr := fmt.Sprintf("%v:%d", config.Address, Ife(config.Port <= 0, DefaultWebServerPort, config.Port))
 	website := spec.WebSiteSpec{
 		Swagger: "2.0",
 		Info: &spec.Info{
@@ -48,7 +49,7 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 			Title:          "A dij-gin base API",
 			Version:        "0.0.1",
 		},
-		Host:     Ife(config.Address == "", "localhost", config.Address),
+		Host:     addr,
 		BasePath: config.BasePath,
 		Tags:     nil,
 		Schemes:  config.Schemes,
@@ -133,12 +134,12 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 			}
 			wrappers := GenerateHandlerWrappers(fieldIf, HandlerForMid)
 			for _, w := range wrappers {
-				fmt.Printf("%v %v\n", w.method, w.path)
-				_, exists := mwHdlWrappers[w.path]
+				fmt.Printf("%v %v\n", w.ReqMethod(), w.ReqPath())
+				_, exists := mwHdlWrappers[w.ReqPath()]
 				if exists {
-					return fmt.Errorf("middleware's handler '%s' is duplicated", w.path)
+					return fmt.Errorf("middleware's handler '%s' is duplicated", w.ReqPath())
 				}
-				mwHdlWrappers[w.path] = w
+				mwHdlWrappers[w.ReqPath()] = w
 			}
 		}
 	}
@@ -165,7 +166,7 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 						if w, b := mwHdlWrappers[name]; !b {
 							return fmt.Errorf("middleware's handler '%s' doesn't exist", name)
 						} else {
-							routers = routers.Use(w.handler)
+							routers = routers.Use(w.Handler)
 						}
 					}
 				}
@@ -173,7 +174,8 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 		}
 		fmt.Printf("Set router for %v\n", instType)
 		if webRoutes, ok := routers.(WebRoutes); ok {
-			setupRoutesHandlers(webRoutes, instPtr, mwHdlWrappers)
+			siteSpec := (*refPtr)[WebSpecRecord].(*spec.WebSiteSpec)
+			setupRoutesHandlers(webRoutes, instPtr, mwHdlWrappers, siteSpec)
 			ctrl := instPtr.(WebControllerSpec)
 			ctrl.SetupRouter(router, instPtr)
 		} else {
@@ -218,20 +220,37 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 }
 
 // setupRoutesHandlers set routing path for controller
-func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper) {
+func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, def *spec.WebSiteSpec) {
+	basePath := routes.BasePath()
+
 	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq)
 	for _, w := range wrappers {
 		var handlers []gin.HandlerFunc
-		for _, name := range w.middlewareNames {
+		for _, name := range w.Spec.MiddlewareNames {
 			if name = strings.TrimSpace(name); len(name) > 0 {
 				if h, b := mwHdlWrappers[name]; b {
-					handlers = append(handlers, h.handler)
+					handlers = append(handlers, h.Handler)
 				} else {
 					log.Fatalf("middleware's handler '%s' doesn't exist", name)
 				}
 			}
 		}
-		handlers = append(handlers, w.handler)
-		routes.Handle(w.method, w.path, handlers...)
+		handlers = append(handlers, w.Handler)
+		routes.Handle(w.UpperReqMethod(), w.ReqPath(), handlers...)
+		path := strings.TrimRight(basePath, "/") + "/" + w.ReqPath()
+		method := w.ReqMethod()
+		resp := spec.Response{
+			Schema: &spec.TypeSchema{
+				Type: "string",
+			},
+			Description: "ok 200",
+		}
+		methodDef := spec.Method{
+			Produces:   []string{"application/json"},
+			Consumes:   []string{},
+			Parameters: []spec.Parameter{},
+			Responses:  map[string]spec.Response{"200": resp},
+		}
+		def.AddMethod(path, method, methodDef)
 	}
 }

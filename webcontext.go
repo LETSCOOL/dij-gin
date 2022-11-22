@@ -76,3 +76,9 @@ func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type) (data 
 		return instPtrVal.Elem().Interface(), true
 	}
 }
+
+var WebCtxType reflect.Type
+
+func init() {
+	WebCtxType = reflect.TypeOf(WebContext{})
+}

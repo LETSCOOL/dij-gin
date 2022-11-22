@@ -16,10 +16,34 @@ import (
 )
 
 type HandlerWrapper struct {
-	method          string
-	path            string
-	middlewareNames []string
-	handler         gin.HandlerFunc
+	Spec    HandlerSpec
+	Handler gin.HandlerFunc
+}
+
+func (w *HandlerWrapper) ReqMethod() string {
+	return w.Spec.Method
+}
+
+func (w *HandlerWrapper) UpperReqMethod() string {
+	return w.Spec.UpperMethod()
+}
+
+func (w *HandlerWrapper) ReqPath() string {
+	return w.Spec.Path
+}
+
+type HandlerSpec struct {
+	Purpose           HandlerWrapperPurpose
+	MethodType        reflect.Method
+	BaseParamType     reflect.Type
+	Method            string // lower case, ex: get, post, etc.
+	Path              string // lower cast path, does it need to support case-sensitive?
+	FieldsOfBaseParam []FieldDefOfHandlerBaseParam
+	MiddlewareNames   []string
+}
+
+func (s *HandlerSpec) UpperMethod() string {
+	return strings.ToUpper(s.Method)
 }
 
 type HandlerWrapperPurpose int
@@ -29,85 +53,102 @@ const (
 	HandlerForMid                              // for middleware
 )
 
-func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []HandlerWrapper {
-	var regexText, baseKey string
-	switch purpose {
+func (h HandlerWrapperPurpose) RegexpText() string {
+	switch h {
 	case HandlerForReq:
-		regexText = `^(get|post|put|patch|delete|head|connect|options|trace)`
-		baseKey = "path"
+		return `^(get|post|put|patch|delete|head|connect|options|trace)`
 	case HandlerForMid:
-		regexText = `^(handle)`
-		baseKey = "name"
+		return `^(handle)`
 	default:
-		return nil
+		return ""
 	}
+}
+
+func (h HandlerWrapperPurpose) Regexp() *regexp.Regexp {
+	if text := h.RegexpText(); text != "" {
+		return regexp.MustCompile(text)
+	}
+	return nil
+}
+
+func (h HandlerWrapperPurpose) BaseKey() string {
+	switch h {
+	case HandlerForReq:
+		return "path"
+	case HandlerForMid:
+		return "name"
+	default:
+		return ""
+	}
+}
+
+type FieldDefOfHandlerBaseParam struct {
+	Index         int
+	FieldSpec     reflect.StructField
+	ExistsTag     bool           // exists http tag
+	Attrs         StructTagAttrs // come from http tag
+	PreferredName string
+}
+
+func (c *FieldDefOfHandlerBaseParam) preferredText(key string, allowedValOnly bool, allowedFieldName bool) string {
+	if c.ExistsTag {
+		if allowedValOnly {
+			if attr, ok := c.Attrs.FirstAttrWithValOnly(); ok {
+				if len(attr.Val) > 0 {
+					return attr.Val
+				}
+			}
+		}
+		if attr, ok := c.Attrs.FirstAttrsWithKey(key); ok {
+			if len(attr.Val) > 0 {
+				return attr.Val
+			}
+		}
+	}
+	if allowedFieldName {
+		return c.FieldSpec.Name
+	}
+	return ""
+}
+
+func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []HandlerWrapper {
 	wrappers := make([]HandlerWrapper, 0)
-	webCtxType := reflect.TypeOf(WebContext{})
 	instPtrType := reflect.TypeOf(instPtr)
-	handleMethodRegex := regexp.MustCompile(regexText)
+	handleMethodRegex := purpose.Regexp()
 	// TODO: how to deal routing for static pages
 	for i := 0; i < instPtrType.NumMethod(); i++ {
 		method := instPtrType.Method(i)
 		if method.IsExported() {
 			methodType := method.Type
 			if methodType.NumIn() == 2 && methodType.NumOut() <= 1 {
-				param1Typ := methodType.In(1)
-				if IsTypeOfWebContext(param1Typ) && param1Typ.Kind() == reflect.Struct {
+				baseParamType := methodType.In(1)
+				if IsTypeOfWebContext(baseParamType) && baseParamType.Kind() == reflect.Struct {
+					hdlSpec := HandlerSpec{
+						Purpose:       purpose,
+						BaseParamType: baseParamType,
+						MethodType:    method,
+					}
 					// Only fit function with one parameter and the parameter extends WebContext.
 					methodName := method.Name
 					lowerMethodName := strings.ToLower(methodName)
-					reqMethod := string(handleMethodRegex.Find([]byte(lowerMethodName)))
-					reqPath := lowerMethodName[len(reqMethod):]
-					var middlewareNames []string
-					if param1Typ != webCtxType {
+					hdlSpec.Method = string(handleMethodRegex.Find([]byte(lowerMethodName)))
+					hdlSpec.Path = lowerMethodName[len(hdlSpec.Method):]
+					if baseParamType != WebCtxType {
 						// this part extends WebContext, so it also should process tag information
-						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, param1Typ)
-						param1Defs := make([]FieldDefOfHandlerBaseParam, 0)
-						for f := 0; f < param1Typ.NumField(); f++ {
-							field := param1Typ.Field(f)
-							tag, existsTag := field.Tag.Lookup(HttpTagName)
-							diTag := ParseStructTag(tag)
-							def := FieldDefOfHandlerBaseParam{
-								index:     f,
-								fieldSpec: field,
-								existsTag: existsTag,
-								attrs:     diTag,
-							}
-							if field.Anonymous && field.Type == webCtxType {
-								// extended/embedded struct, retrieve request name and method from http tag
-								if existsTag {
-									if path := def.preferredText(baseKey, true, false); len(path) > 0 {
-										reqPath = path
-									}
-									if attr, b := diTag.FirstAttrsWithKey("method"); b {
-										if len(attr.Val) > 0 {
-											reqMethod = strings.ToUpper(string(handleMethodRegex.Find([]byte(attr.Val))))
-										}
-									}
-									if attr, exists := diTag.FirstAttrsWithKey("middleware"); exists {
-										middlewares := strings.Split(attr.Val, ",")
-										middlewareNames = append(middlewareNames, middlewares...)
-										fmt.Printf("middlewares: %v, diTag: %v", middlewares, diTag)
-									}
-								}
-							} else {
-								def.preferredName = def.preferredText("name", true, true)
-							}
-							param1Defs = append(param1Defs, def)
-						}
+						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, baseParamType)
+						analyzeBaseParam(baseParamType, purpose, &hdlSpec)
+
 						wrappers = append(wrappers, HandlerWrapper{
-							strings.ToUpper(reqMethod),
-							reqPath,
-							middlewareNames,
+							hdlSpec,
 							func(c *gin.Context) {
-								param1InstPtrVal := reflect.New(param1Typ)
-								param1InstVal := param1InstPtrVal.Elem()
+								baseParamInstPtrVal := reflect.New(baseParamType)
+								baseParamInstVal := baseParamInstPtrVal.Elem()
 								ctx := WebContext{c}
-								for _, def := range param1Defs {
-									fieldSpec := def.fieldSpec
+								for _, def := range hdlSpec.FieldsOfBaseParam {
+									fieldSpec := def.FieldSpec
 									fieldSpecType := fieldSpec.Type
-									field := param1InstVal.Field(def.index)
-									if fieldSpec.Anonymous && fieldSpecType == webCtxType {
+									field := baseParamInstVal.Field(def.Index)
+									if fieldSpec.Anonymous && fieldSpecType == WebCtxType {
 										field.Set(reflect.ValueOf(ctx))
 									} else {
 										var val any = nil
@@ -129,7 +170,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 												log.Printf("bind type(%v) with json error: %v\n", fieldSpecType, err)
 											}
 										} else {
-											val, ok = ctx.GetRequestValueForType(def.preferredName, fieldSpecType)
+											val, ok = ctx.GetRequestValueForType(def.PreferredName, fieldSpecType)
 										}
 										if ok {
 											fieldName := fieldSpec.Name
@@ -146,19 +187,17 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 									}
 								}
 								//fmt.Printf("I'm in")
-								outData := reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{param1InstVal})
+								outData := reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{baseParamInstVal})
 								generateOutputData(c, methodName, outData)
 							},
 						})
 					} else {
-						if len(reqMethod) == 0 {
+						if len(hdlSpec.Method) == 0 {
 							continue
 						}
-						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, param1Typ.Name())
+						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, baseParamType.Name())
 						wrappers = append(wrappers, HandlerWrapper{
-							strings.ToUpper(reqMethod),
-							reqPath,
-							nil,
+							hdlSpec,
 							func(c *gin.Context) {
 								ctx := WebContext{c}
 								//fmt.Printf("I'm in")
@@ -174,37 +213,47 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 	return wrappers
 }
 
+func analyzeBaseParam(baseParamType reflect.Type, purpose HandlerWrapperPurpose, spec *HandlerSpec) {
+	baseKey := purpose.BaseKey()
+	handleMethodRegex := purpose.Regexp()
+	spec.FieldsOfBaseParam = make([]FieldDefOfHandlerBaseParam, 0)
+	for f := 0; f < baseParamType.NumField(); f++ {
+		field := baseParamType.Field(f)
+		tag, existsTag := field.Tag.Lookup(HttpTagName)
+		diTag := ParseStructTag(tag)
+		def := FieldDefOfHandlerBaseParam{
+			Index:     f,
+			FieldSpec: field,
+			ExistsTag: existsTag,
+			Attrs:     diTag,
+		}
+		if field.Anonymous && field.Type == WebCtxType {
+			// extended/embedded struct, retrieve request name and method from http tag
+			if existsTag {
+				if path := def.preferredText(baseKey, true, false); len(path) > 0 {
+					spec.Path = path
+				}
+				if attr, b := diTag.FirstAttrsWithKey("method"); b {
+					if len(attr.Val) > 0 {
+						spec.Method = strings.ToUpper(string(handleMethodRegex.Find([]byte(attr.Val))))
+					}
+				}
+				if attr, exists := diTag.FirstAttrsWithKey("middleware"); exists {
+					middlewares := strings.Split(attr.Val, ",")
+					spec.MiddlewareNames = append(spec.MiddlewareNames, middlewares...)
+					fmt.Printf("middlewares: %v, diTag: %v", middlewares, diTag)
+				}
+			}
+		} else {
+			def.PreferredName = def.preferredText("name", true, true)
+		}
+		spec.FieldsOfBaseParam = append(spec.FieldsOfBaseParam, def)
+	}
+	return
+}
+
 func generateOutputData(c *gin.Context, method string, output []reflect.Value) {
 	/*for _, d := range output {
 		c.JSON()
 	}*/
-}
-
-type FieldDefOfHandlerBaseParam struct {
-	index         int
-	fieldSpec     reflect.StructField
-	existsTag     bool           // exists http tag
-	attrs         StructTagAttrs // come from http tag
-	preferredName string
-}
-
-func (c *FieldDefOfHandlerBaseParam) preferredText(key string, allowedValOnly bool, allowedFieldName bool) string {
-	if c.existsTag {
-		if allowedValOnly {
-			if attr, ok := c.attrs.FirstAttrWithValOnly(); ok {
-				if len(attr.Val) > 0 {
-					return attr.Val
-				}
-			}
-		}
-		if attr, ok := c.attrs.FirstAttrsWithKey(key); ok {
-			if len(attr.Val) > 0 {
-				return attr.Val
-			}
-		}
-	}
-	if allowedFieldName {
-		return c.fieldSpec.Name
-	}
-	return ""
 }

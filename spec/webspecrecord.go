@@ -8,12 +8,24 @@ type WebSiteSpec struct {
 	Swagger     string                        `json:"swagger"`
 	Info        *Info                         `json:"info"`
 	Host        string                        `json:"host"`
-	BasePath    string                        `json:"basePath"`
+	BasePath    string                        `json:"basePath,omitempty"`
 	Tags        []Tag                         `json:"tags,omitempty"`
 	Schemes     []string                      `json:"schemes"`                       // ex: http, https
 	Paths       Paths                         `json:"paths,omitempty"`               // ex: "/user":Path
 	Security    map[string]SecurityDefinition `json:"securityDefinitions,omitempty"` // ex: {"api_key": SecurityDefinition}
 	Definitions map[string]TypeDefinition     `json:"definitions,omitempty"`         // ex: {"type_name":TypeDefinition}
+}
+
+func (s *WebSiteSpec) AddMethod(path string, method string, def Method) {
+	if s.Paths == nil {
+		s.Paths = Paths{}
+	}
+	p, b := s.Paths[path]
+	if !b {
+		p = Path{}
+		s.Paths[path] = p
+	}
+	p[method] = def
 }
 
 type Info struct {
@@ -50,13 +62,13 @@ type Path map[string]Method // ex: {"post":Method}
 type Method struct {
 	Summary     string              `json:"summary"`
 	Security    []any               `json:"security,omitempty"`
-	Consumes    []string            `json:"consumes"` // ex: ["application/json", "multipart/form-data"]
-	Produces    []string            `json:"produces"` // ex: ["application/json"]
+	Consumes    []string            `json:"consumes,omitempty"` // ex: ["application/json", "multipart/form-data"]
+	Produces    []string            `json:"produces,omitempty"` // ex: ["application/json"]
 	Description string              `json:"description"`
-	OperationID string              `json:"operationId"`
-	Parameters  []Parameter         `json:"parameters"`
-	Responses   map[string]Response `json:"responses"` // ex: {"200":response}, {"default":{"description":"successful operation"}}
-	Tags        []string            `json:"tags"`
+	OperationID string              `json:"operationId,operationId"`
+	Parameters  []Parameter         `json:"parameters,operationId"`
+	Responses   map[string]Response `json:"responses,operationId"` // ex: {"200":response}, {"default":{"description":"successful operation"}}
+	Tags        []string            `json:"tags,operationId"`
 }
 
 type Parameter struct {
