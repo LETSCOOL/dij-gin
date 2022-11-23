@@ -242,16 +242,98 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		fullPath, paramNames := w.ConcatSwaggerPath(basePath)
 		method := w.ReqMethod()
 		var parameters []spec.Parameter
-		for _, n := range paramNames {
-			paramSpec := spec.Parameter{
-				In:          "path",
-				Name:        n,
-				Format:      "int64",
-				Description: "ID of pet to return",
-				Type:        "integer",
-				Required:    true,
+		shouldBodyCoding := method == "post" || method == "put"
+		consumeCoding := make([]spec.MethodCoding, 0) // "application/x-www-form-urlencoded", "multipart/form-data", "application/json"
+		var objCoding, formCoding int
+		for _, fieldDef := range w.Spec.FieldsOfBaseParam {
+			fieldSpec := fieldDef.FieldSpec
+			fieldSpecType := fieldSpec.Type
+			attrs := fieldDef.Attrs
+			if fieldSpec.Anonymous && fieldSpecType == WebCtxType {
+				vals := attrs.AttrsWithValOnly()
+				for _, v := range vals {
+					if c, obj, b := CodingFormAttr(v.Val); b {
+						if obj {
+							objCoding++
+						} else {
+							formCoding++
+						}
+						consumeCoding = append(consumeCoding, c)
+					}
+				}
+				break
+			} else {
+				// later
 			}
-			parameters = append(parameters, paramSpec)
+		}
+		if objCoding > 0 && formCoding > 0 {
+			log.Fatalf("Obj-coding and form-coding should not set at same time.")
+		}
+		if len(consumeCoding) > 0 && !shouldBodyCoding {
+			log.Fatalf("Only post or put method support body coding")
+		}
+		var formWayCnt, bodyWayCnt int
+		for _, fieldDef := range w.Spec.FieldsOfBaseParam {
+			fieldSpec := fieldDef.FieldSpec
+			fieldSpecType := fieldSpec.Type
+			attrs := fieldDef.Attrs
+			if fieldSpec.Anonymous && fieldSpecType == WebCtxType {
+				// ignore
+			} else {
+				paramSpec := spec.Parameter{
+					Name: fieldDef.PreferredName,
+				}
+				varKind := spec.GetVariableKind(fieldSpecType)
+				if varKind == spec.VarKindUnsupported {
+					log.Fatalf("unsupport variable type: %v", fieldSpecType)
+				}
+				if Contains(paramNames, fieldDef.PreferredName) {
+					paramSpec.In = InPathWay
+				} else {
+					if attr, b := attrs.FirstAttrsWithKey("in"); b {
+						in := attr.Val
+						if !IsCorrectInWay(in) {
+							log.Fatalf("unsupported in way: %s", in)
+						}
+						paramSpec.In = in
+					} else {
+						switch method {
+						case "post", "put", "patch":
+							switch varKind {
+							case spec.VarKindArray, spec.VarKindObject:
+								paramSpec.In = InBodyWay
+							default:
+								paramSpec.In = InFormWay
+							}
+						default:
+							paramSpec.In = InQueryWay
+						}
+					}
+				}
+				paramSpec.ApplyType(fieldSpecType)
+				if attrs.ContainsAttrWithValOnly("required") {
+					paramSpec.Required = true
+				}
+				if paramSpec.In == InFormWay {
+					formWayCnt++
+				} else if paramSpec.In == InBodyWay {
+					bodyWayCnt++
+				}
+				parameters = append(parameters, paramSpec)
+			}
+		}
+		if shouldBodyCoding && len(consumeCoding) == 0 {
+			if bodyWayCnt > 0 {
+				consumeCoding = append(consumeCoding, spec.JsonObject)
+			} else {
+				consumeCoding = append(consumeCoding, spec.UrlEncoded)
+			}
+		}
+		if formWayCnt > 0 && bodyWayCnt > 0 {
+			log.Fatalf("Form way variable and body way variable should not come together")
+		}
+		if bodyWayCnt > 1 {
+			log.Fatalf("Only support one body way variable")
 		}
 
 		resp := spec.Response{
@@ -261,11 +343,25 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 			Description: "ok 200",
 		}
 		methodDef := spec.Method{
-			Produces:   []string{"application/json"},
-			Consumes:   []string{},
+			Consumes:   consumeCoding,
+			Produces:   []spec.MethodCoding{"application/json"},
 			Parameters: parameters,
 			Responses:  map[string]spec.Response{"200": resp},
 		}
 		def.AddMethod(fullPath, method, methodDef)
 	}
+}
+
+func CodingFormAttr(v string) (coding spec.MethodCoding, objective bool, ok bool) {
+	switch v {
+	case "form", "multipart":
+		return spec.MultipartForm, false, true
+	case "urlencoded":
+		return spec.UrlEncoded, false, true
+	case "json":
+		return spec.JsonObject, true, true
+	case "xml":
+		return spec.XmlObject, true, true
+	}
+	return "", false, false
 }

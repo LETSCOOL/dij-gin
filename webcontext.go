@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"log"
 	"reflect"
 )
 
@@ -22,6 +23,24 @@ func IsTypeOfWebContext(typ reflect.Type) bool {
 	instIf := instPtrValue.Interface()
 	_, ok := instIf.(WebContextSpec)
 	return ok
+}
+
+type InWay = string
+
+const (
+	InHeaderWay = "header"
+	InQueryWay  = "query"
+	InPathWay   = "path"
+	InFormWay   = "formData"
+	InBodyWay   = "body"
+)
+
+func IsCorrectInWay(way InWay) bool {
+	switch way {
+	case InHeaderWay, InQueryWay, InPathWay, InFormWay, InBodyWay:
+		return true
+	}
+	return false
 }
 
 type WebContextSpec interface {
@@ -56,15 +75,43 @@ func (c *WebContext) GetRequestValue(key string, instPtr any) (exists bool) {
 	}
 }
 
-func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type) (data any, exists bool) {
+func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type, inWay InWay) (data any, exists bool) {
 	var text string
-	if text, exists = c.GetQuery(key); !exists {
+	switch inWay {
+	case InHeaderWay:
+		text = c.GetHeader(key)
+		if exists = len(text) > 0; exists {
+			return nil, false
+		}
+	case InQueryWay:
+		if text, exists = c.GetQuery(key); !exists {
+			return nil, false
+		}
+	case InFormWay:
 		if text, exists = c.GetPostForm(key); !exists {
-			if text = c.Param(key); len(text) == 0 {
-				return nil, false
+			return nil, false
+		}
+	case InPathWay:
+		text = c.Param(key)
+		if exists = len(text) > 0; exists {
+			return nil, false
+		}
+	default:
+		if len(inWay) > 0 {
+			log.Fatalln("Not support data come from this way: " + inWay)
+		}
+		// guess
+		if text, exists = c.GetQuery(key); !exists {
+			if text, exists = c.GetPostForm(key); !exists {
+				if text = c.Param(key); len(text) == 0 {
+					if text = c.GetHeader(key); len(text) == 0 {
+						return nil, false
+					}
+				}
 			}
 		}
 	}
+
 	switch typ.Kind() {
 	case reflect.String:
 		return text, true

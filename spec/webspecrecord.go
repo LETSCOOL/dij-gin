@@ -4,6 +4,12 @@
 
 package spec
 
+import (
+	"fmt"
+	"reflect"
+	"strconv"
+)
+
 type WebSiteSpec struct {
 	Swagger     string                        `json:"swagger"`
 	Info        *Info                         `json:"info"`
@@ -58,12 +64,20 @@ type ExternalDoc struct {
 
 type Paths = map[string]Path
 type Path map[string]Method // ex: {"post":Method}
+type MethodCoding string
+
+const (
+	UrlEncoded    MethodCoding = "application/x-www-form-urlencoded"
+	MultipartForm MethodCoding = "multipart/form-data"
+	JsonObject    MethodCoding = "application/json"
+	XmlObject     MethodCoding = "application/xml"
+)
 
 type Method struct {
 	Summary     string              `json:"summary"`
 	Security    []any               `json:"security,omitempty"`
-	Consumes    []string            `json:"consumes,omitempty"` // ex: ["application/json", "multipart/form-data"]
-	Produces    []string            `json:"produces,omitempty"` // ex: ["application/json"]
+	Consumes    []MethodCoding      `json:"consumes,omitempty"` // ex: ["application/json", "multipart/form-data"]
+	Produces    []MethodCoding      `json:"produces,omitempty"` // ex: ["application/json"]
 	Description string              `json:"description"`
 	OperationID string              `json:"operationId,omitempty"`
 	Parameters  []Parameter         `json:"parameters,omitempty"`
@@ -79,6 +93,39 @@ type Parameter struct {
 	Type        string      `json:"type,omitempty"`
 	Schema      *TypeSchema `json:"schema,omitempty"`
 	Required    bool        `json:"required"`
+}
+
+// ApplyType coverts type in golang to json/swagger type
+// ref: https://swagger.io/docs/specification/data-models/data-types/
+func (p *Parameter) ApplyType(t reflect.Type) {
+	switch t.Kind() {
+	case reflect.Bool:
+		p.Type = "boolean"
+	case reflect.Int, reflect.Uint:
+		p.Type = "integer"
+		p.Format = fmt.Sprintf("int%d", strconv.IntSize)
+	case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32:
+		p.Type = "integer"
+		p.Format = "int32"
+	case reflect.Int64, reflect.Uint64:
+		p.Type = "integer"
+		p.Format = "int64"
+	case reflect.Float64:
+		p.Type = "number"
+		p.Format = "double"
+	case reflect.Float32:
+		p.Type = "number"
+		p.Format = "float"
+	case reflect.String:
+		p.Type = "string"
+		// TODO: support datetime
+	case reflect.Struct, reflect.Map: // TODO: can support map ?
+		p.Type = "object"
+	case reflect.Array, reflect.Slice:
+		p.Type = "array"
+	default:
+		//
+	}
 }
 
 type Response struct {

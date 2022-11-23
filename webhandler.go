@@ -189,7 +189,8 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 												log.Printf("bind type(%v) with json error: %v\n", fieldSpecType, err)
 											}
 										} else {
-											val, ok = ctx.GetRequestValueForType(def.PreferredName, fieldSpecType)
+											in, b := def.Attrs.FirstAttrsWithKey("in")
+											val, ok = ctx.GetRequestValueForType(def.PreferredName, fieldSpecType, Ife(b, in.Val, ""))
 										}
 										if ok {
 											fieldName := fieldSpec.Name

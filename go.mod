@@ -1,6 +1,6 @@
 module github.com/letscool/dij-gin
 
-//replace github.com/letscool/lc-go => ../lc-go
+replace github.com/letscool/lc-go => ../lc-go
 
 go 1.19
 
