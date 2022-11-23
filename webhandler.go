@@ -32,6 +32,24 @@ func (w *HandlerWrapper) ReqPath() string {
 	return w.Spec.Path
 }
 
+func (w *HandlerWrapper) ConcatSwaggerPath(basePath string) (fullPath string, params []string) {
+	path := strings.TrimRight(basePath, "/") + "/" + w.ReqPath()
+	var pathComps []string
+	for _, comp := range strings.Split(path, "/") {
+		if len(comp) <= 0 {
+			continue
+		}
+		if comp[0] == ':' || comp[0] == '*' {
+			params = append(params, comp[1:])
+			pathComps = append(pathComps, "{"+comp[1:]+"}")
+		} else {
+			pathComps = append(pathComps, comp)
+		}
+	}
+	fullPath = "/" + strings.Join(pathComps, "/")
+	return
+}
+
 type HandlerSpec struct {
 	Purpose           HandlerWrapperPurpose
 	MethodType        reflect.Method
@@ -136,6 +154,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 					if baseParamType != WebCtxType {
 						// this part extends WebContext, so it also should process tag information
 						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, baseParamType)
+						//fmt.Printf("\t%s\n", baseParamType.Name())
 						analyzeBaseParam(baseParamType, purpose, &hdlSpec)
 
 						wrappers = append(wrappers, HandlerWrapper{
@@ -196,6 +215,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 							continue
 						}
 						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, baseParamType.Name())
+						//fmt.Printf("\t%s\n", baseParamType.Name())
 						wrappers = append(wrappers, HandlerWrapper{
 							hdlSpec,
 							func(c *gin.Context) {
@@ -235,17 +255,18 @@ func analyzeBaseParam(baseParamType reflect.Type, purpose HandlerWrapperPurpose,
 				}
 				if attr, b := diTag.FirstAttrsWithKey("method"); b {
 					if len(attr.Val) > 0 {
-						spec.Method = strings.ToUpper(string(handleMethodRegex.Find([]byte(attr.Val))))
+						spec.Method = strings.ToLower(string(handleMethodRegex.Find([]byte(attr.Val))))
 					}
 				}
 				if attr, exists := diTag.FirstAttrsWithKey("middleware"); exists {
-					middlewares := strings.Split(attr.Val, ",")
+					middlewares := strings.Split(attr.Val, "&")
 					spec.MiddlewareNames = append(spec.MiddlewareNames, middlewares...)
-					fmt.Printf("middlewares: %v, diTag: %v", middlewares, diTag)
+					//fmt.Printf("middlewares: %v, diTag: %v\n", middlewares, diTag)
 				}
 			}
 		} else {
 			def.PreferredName = def.preferredText("name", true, true)
+			//fmt.Printf("\t%d[%s][%s] %v\n", def.Index, def.PreferredName, def.FieldSpec.Name, def.FieldSpec.Type)
 		}
 		spec.FieldsOfBaseParam = append(spec.FieldsOfBaseParam, def)
 	}

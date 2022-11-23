@@ -98,11 +98,12 @@ func TestValidateWebType(t *testing.T) {
 }
 
 type TestWebServer struct {
-	WebServer `http:"middleware=abc" description:""`
+	WebServer `http:"middleware=abc&cors" description:""`
 
 	ctrl1   *TestWebController1     `di:"^"`
 	mdl1    *TestWebMiddleware      `di:"^"`
 	swagger *libs.SwaggerController `di:""`
+	_       *libs.CorsMiddleware    `di:""`
 }
 
 func (s *TestWebServer) Get(ctx WebContext) {

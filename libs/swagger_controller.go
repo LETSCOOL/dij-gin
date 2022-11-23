@@ -21,6 +21,8 @@ var content embed.FS
 //go:embed swagger_example.json
 var swaggerJson string
 
+// SwaggerController embeds a Swagger/OpenAPI entry.
+// Swagger file validator: https://github.com/swagger-api/validator-badge
 type SwaggerController struct {
 	WebController `http:""`
 }

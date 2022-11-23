@@ -65,10 +65,10 @@ type Method struct {
 	Consumes    []string            `json:"consumes,omitempty"` // ex: ["application/json", "multipart/form-data"]
 	Produces    []string            `json:"produces,omitempty"` // ex: ["application/json"]
 	Description string              `json:"description"`
-	OperationID string              `json:"operationId,operationId"`
-	Parameters  []Parameter         `json:"parameters,operationId"`
-	Responses   map[string]Response `json:"responses,operationId"` // ex: {"200":response}, {"default":{"description":"successful operation"}}
-	Tags        []string            `json:"tags,operationId"`
+	OperationID string              `json:"operationId,omitempty"`
+	Parameters  []Parameter         `json:"parameters,omitempty"`
+	Responses   map[string]Response `json:"responses,omitempty"` // ex: {"200":response}, {"default":{"description":"successful operation"}}
+	Tags        []string            `json:"tags,omitempty"`
 }
 
 type Parameter struct {
@@ -87,7 +87,7 @@ type Response struct {
 }
 
 type TypeSchema struct {
-	Ref                  string                `json:"$ref"`
+	Ref                  string                `json:"$ref,omitempty"`
 	Type                 string                `json:"type,omitempty"` // ex: "array", "object", "string", etc.
 	Items                *TypeSchema           `json:"items,omitempty"`
 	AdditionalProperties *AdditionalProperties `json:"additionalProperties,omitempty"`
@@ -102,9 +102,9 @@ type SecurityDefinition struct {
 	Type    string            `json:"type"` // ex: "apiKey", "oauth2"
 	Name    string            `json:"name,omitempty"`
 	In      string            `json:"in,omitempty"`
-	AuthUrl string            `json:"authorizationUrl"`
-	Flow    string            `json:"flow"`
-	Scopes  map[string]string `json:"scopes"` // ex: {"read:pets": "read your pets","write:pets": "modify pets in your account"}
+	AuthUrl string            `json:"authorizationUrl,omitempty"`
+	Flow    string            `json:"flow,omitempty"`
+	Scopes  map[string]string `json:"scopes,omitempty"` // ex: {"read:pets": "read your pets","write:pets": "modify pets in your account"}
 }
 
 type TypeDefinition struct {

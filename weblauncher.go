@@ -160,7 +160,7 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 			}
 			routers = router.(gin.IRoutes)
 			if attr, exists := attrs.FirstAttrsWithKey("middleware"); exists {
-				middlewares := strings.Split(attr.Val, ",")
+				middlewares := strings.Split(attr.Val, "&")
 				for _, m := range middlewares {
 					if name := strings.TrimSpace(m); len(name) > 0 {
 						if w, b := mwHdlWrappers[name]; !b {
@@ -225,6 +225,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 
 	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq)
 	for _, w := range wrappers {
+		// process gin structure
 		var handlers []gin.HandlerFunc
 		for _, name := range w.Spec.MiddlewareNames {
 			if name = strings.TrimSpace(name); len(name) > 0 {
@@ -237,8 +238,22 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		}
 		handlers = append(handlers, w.Handler)
 		routes.Handle(w.UpperReqMethod(), w.ReqPath(), handlers...)
-		path := strings.TrimRight(basePath, "/") + "/" + w.ReqPath()
+		// process swagger structure
+		fullPath, paramNames := w.ConcatSwaggerPath(basePath)
 		method := w.ReqMethod()
+		var parameters []spec.Parameter
+		for _, n := range paramNames {
+			paramSpec := spec.Parameter{
+				In:          "path",
+				Name:        n,
+				Format:      "int64",
+				Description: "ID of pet to return",
+				Type:        "integer",
+				Required:    true,
+			}
+			parameters = append(parameters, paramSpec)
+		}
+
 		resp := spec.Response{
 			Schema: &spec.TypeSchema{
 				Type: "string",
@@ -248,9 +263,9 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		methodDef := spec.Method{
 			Produces:   []string{"application/json"},
 			Consumes:   []string{},
-			Parameters: []spec.Parameter{},
+			Parameters: parameters,
 			Responses:  map[string]spec.Response{"200": resp},
 		}
-		def.AddMethod(path, method, methodDef)
+		def.AddMethod(fullPath, method, methodDef)
 	}
 }
