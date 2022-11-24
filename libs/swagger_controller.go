@@ -8,6 +8,7 @@ import (
 	"embed"
 	"encoding/json"
 	. "github.com/letscool/dij-gin"
+	"github.com/letscool/dij-gin/spec"
 	"github.com/letscool/lc-go/io"
 	"io/fs"
 	"net/http"
@@ -25,6 +26,8 @@ var swaggerJson string
 // Swagger file validator: https://github.com/swagger-api/validator-badge
 type SwaggerController struct {
 	WebController `http:""`
+
+	Spec *spec.WebSiteSpec `di:"webserver.spec.record"`
 }
 
 func (s *SwaggerController) Open(name string) (fs.File, error) {

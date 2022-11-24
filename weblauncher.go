@@ -7,6 +7,7 @@ package dij_gin
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/letscool/dij-gin/spec"
 	"github.com/letscool/lc-go/dij"
 	. "github.com/letscool/lc-go/lg"
@@ -20,10 +21,16 @@ const (
 	HttpTagName          = "http"
 	WebConfigKey         = "webserver.config"
 	WebSpecRecord        = "webserver.spec.record"
+	WebValidator         = "webserver.validator"
+	WebDijRef            = "webserver.dij.ref"
 )
 
 func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.DependencyReferencePtr, error) {
+	if !IsTypeOfWebServer(webServerType) {
+		return nil, nil, fmt.Errorf("the type(%v) is not a web server", webServerType)
+	}
 	ref := dij.DependencyReference{}
+	// setup web config
 	config := NewWebConfig()
 	for _, other := range others {
 		otherTyp := reflect.TypeOf(other)
@@ -39,6 +46,7 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 	config.ApplyDefaultValues()
 	ref[WebConfigKey] = config
 	addr := fmt.Sprintf("%v:%d", config.Address, Ife(config.Port <= 0, DefaultWebServerPort, config.Port))
+	// setup web spec record, aka. swagger
 	website := spec.WebSiteSpec{
 		Swagger: "2.0",
 		Info: &spec.Info{
@@ -56,11 +64,14 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 		Paths:    nil,
 	}
 	ref[WebSpecRecord] = &website
-
-	if !IsTypeOfWebServer(webServerType) {
-		return nil, nil, fmt.Errorf("the type(%v) is not a web server", webServerType)
-	}
-
+	// setup validator
+	v := validator.New()
+	v.SetTagName("binding")
+	ref[WebValidator] = v
+	// save ref self
+	ref[WebDijRef] = &ref
+	// create instance
+	//dij.EnableLog()
 	instPtr, err := dij.CreateInstance(webServerType, &ref, "^")
 	if err != nil {
 		log.Panic(err)

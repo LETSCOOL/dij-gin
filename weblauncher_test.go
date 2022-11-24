@@ -6,6 +6,7 @@ package dij_gin_test
 
 import (
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	. "github.com/letscool/dij-gin"
 	"github.com/letscool/dij-gin/libs"
 	"net/http"
@@ -204,6 +205,56 @@ func TestRegex(t *testing.T) {
 			t.Error("error regex: ", string(v))
 		} else {
 			t.Log(string(v))
+		}
+	})
+}
+
+// go test ./ -v -run TestValidator
+func TestValidator(t *testing.T) {
+	t.Run("simple", func(t *testing.T) {
+		v := validator.New()
+		v.SetTagName("binding")
+
+		a := struct {
+			J int    `binding:"gte=0,lte=130"`
+			S string `binding:"required"`
+		}{}
+		if err := v.Struct(&a); err == nil {
+			//validationErrors := err.(validator.ValidationErrors)
+			t.Errorf("should be error")
+		}
+		a.S = "1234"
+		a.J = 99
+		if err := v.Struct(&a); err != nil {
+			//validationErrors := err.(validator.ValidationErrors)
+			t.Error(err)
+		}
+	})
+	t.Run("Deep", func(t *testing.T) {
+		v := validator.New()
+		v.SetTagName("binding")
+
+		a := struct {
+			J int    `binding:"gte=0,lte=130"`
+			S string `binding:"required"`
+			O struct {
+				SS string `binding:"required"`
+			}
+		}{}
+		if err := v.Struct(&a); err == nil {
+			//validationErrors := err.(validator.ValidationErrors)
+			t.Errorf("should be error")
+		}
+		a.S = "1234"
+		a.J = 99
+		if err := v.Struct(&a); err == nil {
+			//validationErrors := err.(validator.ValidationErrors)
+			t.Errorf("should be error")
+		}
+		a.O.SS = "bb"
+		if err := v.Struct(&a); err != nil {
+			//validationErrors := err.(validator.ValidationErrors)
+			t.Error(err)
 		}
 	})
 }

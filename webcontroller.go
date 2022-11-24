@@ -5,7 +5,7 @@
 package dij_gin
 
 import (
-	"github.com/letscool/dij-gin/spec"
+	"github.com/letscool/lc-go/dij"
 	"reflect"
 )
 
@@ -30,7 +30,7 @@ type WebControllerSpec interface {
 }
 
 type WebController struct {
-	Spec *spec.WebSiteSpec `di:"webserver.spec.record"`
+	_ref *dij.DependencyReference `di:"webserver.dij.ref"`
 }
 
 func (w *WebController) iAmAWebController() {
