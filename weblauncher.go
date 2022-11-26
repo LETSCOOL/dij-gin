@@ -45,10 +45,11 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 	}
 	config.ApplyDefaultValues()
 	ref[WebConfigKey] = config
-	addr := fmt.Sprintf("%v:%d", config.Address, Ife(config.Port <= 0, DefaultWebServerPort, config.Port))
+	port := Ife(config.Port <= 0, DefaultWebServerPort, config.Port)
+	url := fmt.Sprintf("%v:%d/%s", config.Address, port, config.BasePath)
 	// setup web spec record, aka. swagger
-	website := spec.WebSiteSpec{
-		Swagger: "2.0",
+	website := spec.Openapi{
+		Openapi: "3.0.3",
 		Info: &spec.Info{
 			License:        nil,
 			Contact:        nil,
@@ -57,11 +58,30 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 			Title:          "A dij-gin base API",
 			Version:        "0.0.1",
 		},
-		Host:     addr,
-		BasePath: config.BasePath,
-		Tags:     nil,
-		Schemes:  config.Schemes,
-		Paths:    nil,
+		Servers: []spec.Server{
+			{
+				//Url:         "{schemes}://{addr}:{port}/{basePath}",
+				Url: "{schemes}://" + url,
+				//Description: "API",
+				Variables: map[string]spec.ServerVariable{
+					"schemes": {
+						Enum:    config.Schemes,
+						Default: "http",
+					},
+					//"addr": {
+					//	Default: config.Address,
+					//},
+					//"basePath": {
+					//	Default: config.BasePath,
+					//},
+					//"port": {
+					//	Default: strconv.Itoa(port),
+					//},
+				},
+			},
+		},
+		Tags:  nil,
+		Paths: nil,
 	}
 	ref[WebSpecRecord] = &website
 	// setup validator
@@ -185,7 +205,7 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 		}
 		fmt.Printf("Set router for %v\n", instType)
 		if webRoutes, ok := routers.(WebRoutes); ok {
-			siteSpec := (*refPtr)[WebSpecRecord].(*spec.WebSiteSpec)
+			siteSpec := (*refPtr)[WebSpecRecord].(*spec.Openapi)
 			setupRoutesHandlers(webRoutes, instPtr, mwHdlWrappers, siteSpec)
 			ctrl := instPtr.(WebControllerSpec)
 			ctrl.SetupRouter(router, instPtr)
@@ -231,7 +251,7 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 }
 
 // setupRoutesHandlers set routing path for controller
-func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, def *spec.WebSiteSpec) {
+func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, def *spec.Openapi) {
 	basePath := routes.BasePath()
 
 	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq)
@@ -252,7 +272,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		// process swagger structure
 		fullPath, paramNames := w.ConcatSwaggerPath(basePath)
 		method := w.ReqMethod()
-		var parameters []spec.Parameter
+		var parameters []spec.ParameterR
 		shouldBodyCoding := method == "post" || method == "put"
 		consumeCoding := make([]spec.MethodCoding, 0) // "application/x-www-form-urlencoded", "multipart/form-data", "application/json"
 		var objCoding, formCoding int
@@ -330,7 +350,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 				} else if paramSpec.In == InBodyWay {
 					bodyWayCnt++
 				}
-				parameters = append(parameters, paramSpec)
+				parameters = append(parameters, spec.ParameterR{Parameter: &paramSpec})
 			}
 		}
 		if shouldBodyCoding && len(consumeCoding) == 0 {
@@ -348,16 +368,21 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		}
 
 		resp := spec.Response{
-			Schema: &spec.TypeSchema{
-				Type: "string",
+			Content: map[string]spec.MediaType{
+				"application/json": {
+					Schema: &spec.SchemaR{Schema: &spec.Schema{
+						Type: "string",
+					},
+					},
+				},
 			},
 			Description: "ok 200",
 		}
-		methodDef := spec.Method{
-			Consumes:   consumeCoding,
-			Produces:   []spec.MethodCoding{"application/json"},
+		methodDef := spec.Operation{
+			//Consumes:   consumeCoding,
+			//Produces:   []spec.MethodCoding{"application/json"},
 			Parameters: parameters,
-			Responses:  map[string]spec.Response{"200": resp},
+			Responses:  spec.Responses{"200": spec.ResponseR{Response: &resp}},
 		}
 		def.AddMethod(fullPath, method, methodDef)
 	}
