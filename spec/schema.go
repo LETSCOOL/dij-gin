@@ -492,7 +492,7 @@ type Schema struct {
 	Xml *Xml `json:"xml,omitempty"`
 
 	// Additional external documentation for this schema.
-	ExternalDocs []ExternalDoc `json:"externalDocs,omitempty"`
+	ExternalDocs *ExternalDoc `json:"externalDocs,omitempty"`
 
 	// A free-form property to include an example of an instance for this schema.
 	// To represent examples that cannot be naturally represented in JSON or YAML,

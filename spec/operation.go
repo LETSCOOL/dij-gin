@@ -79,7 +79,7 @@ type Operation struct {
 	Description string `json:"description,omitempty"`
 
 	// Additional external documentation for this operation.
-	ExternalDocs []ExternalDoc `json:"externalDocs,omitempty"`
+	ExternalDocs *ExternalDoc `json:"externalDocs,omitempty"`
 
 	// Unique string used to identify the operation. The id MUST be unique among all operations described in the API.
 	// The operationId value is case-sensitive. Tools and libraries MAY use the operationId to uniquely identify an operation,
@@ -90,7 +90,7 @@ type Operation struct {
 	// the new definition will override it but can never remove it. The list MUST NOT include duplicated parameters.
 	// A unique parameter is defined by a combination of a name and location. The list can use the Reference Object
 	// to link to parameters that are defined at the OpenAPI Object's components/parameters.
-	Parameters []ParameterR `json:"parameters,omitempty"`
+	Parameters ParameterList `json:"parameters,omitempty"`
 
 	// The request body applicable for this operation. The requestBody is only supported in HTTP methods
 	// where the HTTP 1.1 specification RFC7231 has explicitly defined semantics for request bodies.
@@ -102,7 +102,7 @@ type Operation struct {
 
 	// A map of possible out-of band callbacks related to the parent operation. The key is a unique identifier for the Callback Object.
 	// Each value in the map is a Callback Object that describes a request that may be initiated by the API provider and the expected responses.
-	Callbacks map[string]CallbackR `json:"callbacks,omitempty"`
+	Callbacks Callbacks `json:"callbacks,omitempty"`
 
 	// Declares this operation to be deprecated. Consumers SHOULD refrain from usage of the declared operation. Default value is false.
 	Deprecated bool `json:"deprecated,omitempty"`

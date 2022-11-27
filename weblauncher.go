@@ -272,7 +272,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		// process swagger structure
 		fullPath, paramNames := w.ConcatSwaggerPath(basePath)
 		method := w.ReqMethod()
-		var parameters []spec.ParameterR
+		var parameters spec.ParameterList
 		shouldBodyCoding := method == "post" || method == "put"
 		consumeCoding := make([]spec.MethodCoding, 0) // "application/x-www-form-urlencoded", "multipart/form-data", "application/json"
 		var objCoding, formCoding int
@@ -350,7 +350,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 				} else if paramSpec.In == InBodyWay {
 					bodyWayCnt++
 				}
-				parameters = append(parameters, spec.ParameterR{Parameter: &paramSpec})
+				parameters = parameters.AppendParam(&paramSpec)
 			}
 		}
 		if shouldBodyCoding && len(consumeCoding) == 0 {
@@ -368,7 +368,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		}
 
 		resp := spec.Response{
-			Content: map[string]spec.MediaType{
+			Content: spec.Content{
 				"application/json": {
 					Schema: &spec.SchemaR{Schema: &spec.Schema{
 						Type: "string",

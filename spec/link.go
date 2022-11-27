@@ -22,7 +22,8 @@ type Link struct {
 	OperationId string `json:"operationId,omitempty"`
 
 	// A map representing parameters to pass to an operation as specified with operationId or identified via operationRef.
-	// The key is the parameter name to be used, whereas the value can be a constant or an expression to be evaluated and passed to the linked operation. The parameter name can be qualified using the parameter location [{in}.]{name} for operations that use the same parameter name in different locations (e.g. path.id).
+	// The key is the parameter name to be used, whereas the value can be a constant or an expression to be evaluated and passed to the linked operation.
+	// The parameter name can be qualified using the parameter location [{in}.]{name} for operations that use the same parameter name in different locations (e.g. path.id).
 	Parameters map[string]any `json:"parameters,omitempty"`
 
 	// A literal value or {expression} to use as a request body when calling the target operation.

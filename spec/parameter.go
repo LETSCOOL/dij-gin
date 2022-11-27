@@ -186,15 +186,7 @@ type WithSchemaAndStyle struct {
 // A parameter MUST contain either a schema property, or a content property, but not both.
 // When example or examples are provided in conjunction with the schema object, the example MUST follow the prescribed serialization strategy for the parameter.
 type WithContent struct {
-	Content map[string]MediaType `json:"content,omitempty"`
-}
-
-type Parameters map[string]ParameterR
-
-// ParameterR presents Parameter or Ref combination
-type ParameterR struct {
-	*Parameter `json:""`
-	Ref        string `json:"$ref,omitempty"`
+	Content Content `json:"content,omitempty"`
 }
 
 // ApplyType coverts type in golang to json/swagger type
@@ -225,4 +217,24 @@ func (p *Parameter) ApplyType(t reflect.Type) {
 	default:
 		//
 	}
+}
+
+// ParameterR presents Parameter or Ref combination
+type ParameterR struct {
+	*Parameter `json:""`
+	Ref        string `json:"$ref,omitempty"`
+}
+
+// Parameters presents a map for key-parameter pairs.
+type Parameters map[string]ParameterR
+
+// ParameterList presents a list/slice of parameters.
+type ParameterList []ParameterR
+
+func (l ParameterList) AppendRef(ref string) ParameterList {
+	return append(l, ParameterR{Ref: ref})
+}
+
+func (l ParameterList) AppendParam(param *Parameter) ParameterList {
+	return append(l, ParameterR{Parameter: param})
 }

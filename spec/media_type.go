@@ -58,3 +58,5 @@ type MediaType struct {
 	// when the media type is multipart or application/x-www-form-urlencoded.
 	Encoding map[string]Encoding `json:"encoding,omitempty"`
 }
+
+type Content map[string]MediaType
