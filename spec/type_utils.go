@@ -4,7 +4,10 @@
 
 package spec
 
-import "reflect"
+import (
+	"reflect"
+	"time"
+)
 
 type VariableKind int
 
@@ -14,6 +17,12 @@ const (
 	VarKindObject
 	VarKindArray
 )
+
+var TypeOfTime reflect.Type
+
+func init() {
+	TypeOfTime = reflect.TypeOf(time.Now())
+}
 
 func GetVariableKind(t reflect.Type) VariableKind {
 	switch t.Kind() {
@@ -26,10 +35,15 @@ func GetVariableKind(t reflect.Type) VariableKind {
 		return VarKindBase
 	case reflect.String:
 		return VarKindBase
-	case reflect.Struct, reflect.Map: // TODO: can support map ?
+	case reflect.Struct /*, reflect.Map*/ : // TODO: can support map ?
+		if t == TypeOfTime {
+			return VarKindBase
+		}
 		return VarKindObject
 	case reflect.Array, reflect.Slice:
 		return VarKindArray
+	//case reflect.Pointer:
+	//	return GetVariableKind(t.Elem())
 	default:
 		return VarKindUnsupported
 	}

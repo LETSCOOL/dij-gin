@@ -6,6 +6,7 @@ package spec
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 )
@@ -354,7 +355,7 @@ type Schema struct {
 	//		empty schema.
 	// Value MUST be an object and not an array. Inline or referenced schema MUST be of a Schema Object and not
 	// a standard JSON Schema. items MUST be present if the type is array.
-	Items any `json:"items,omitempty"`
+	Items *SchemaR `json:"items,omitempty"`
 
 	// **JSON** The value of this keyword MUST be an integer. This integer MUST be greater than, or equal to, 0.
 	//   An array instance is valid against "maxItems" if its size is less
@@ -541,17 +542,56 @@ func (s *Schema) ApplyType(t reflect.Type) {
 	case reflect.String:
 		s.Type = "number"
 		s.Format = ""
-		// TODO: support datetime
-	case reflect.Struct, reflect.Map:
-		s.Type = "object"
-		s.Format = ""
+	case reflect.Struct:
+		if t == TypeOfTime {
+			s.Type = "string"
+			s.Format = "date-time"
+		} else {
+			s.Type = "object"
+			s.Format = ""
+			required := s.setProperties(t)
+			if len(required) > 0 {
+				s.Required = required
+			}
+		}
 	case reflect.Array, reflect.Slice:
 		s.Type = "array"
 		s.Format = ""
-		// TODO: set item type ?
+		elemSchema := &SchemaR{}
+		elemSchema.ApplyType(t.Elem())
+		s.Items = elemSchema
 	default:
 		//
+		log.Fatalf("scheam doesn't support this type: %v", t)
 	}
+}
+
+func (s *Schema) setProperties(t reflect.Type) (required []string) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if field.Anonymous {
+			// extended/embedded struct
+			r := s.setProperties(field.Type)
+			required = append(required, r...)
+		} else {
+			// TODO: analyze tag, check required
+			name := field.Name
+			if len(name) == 0 || name == "_" {
+				continue
+			}
+			c := name[0]
+			if !(c >= 'A' && c <= 'Z') {
+				continue
+			}
+			if s.Properties == nil {
+				s.Properties = map[string]SchemaR{}
+			}
+			schema := SchemaR{}
+			schema.ApplyType(field.Type)
+			s.Properties[name] = schema
+		}
+	}
+	return
 }
 
 func (s *SchemaR) ApplyOneOf(schemas ...SchemaR) {

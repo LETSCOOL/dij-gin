@@ -127,7 +127,7 @@ func (s *TestWebServer) GetHello(ctx struct {
 func (s *TestWebServer) PostJson(ctx struct {
 	WebContext `http:"" description:""`
 	json       struct {
-		A int    `form:"a" json:"a" binding:"required"`
+		A int    `form:"a" json:"a" binding:"required" http:""`
 		B string `form:"b" json:"b" binding:"required"`
 	}
 }) {
