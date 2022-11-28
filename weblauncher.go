@@ -251,7 +251,7 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 }
 
 // setupRoutesHandlers set routing path for controller
-func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, def *spec.Openapi) {
+func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, siteSpec *spec.Openapi) {
 	basePath := routes.BasePath()
 
 	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq)
@@ -270,11 +270,11 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		handlers = append(handlers, w.Handler)
 		routes.Handle(w.UpperReqMethod(), w.ReqPath(), handlers...)
 		// process swagger structure
-		fullPath, paramNames := w.ConcatSwaggerPath(basePath)
+		fullPath, pathParamNames := w.ConcatOpenapiPath(basePath)
 		method := w.ReqMethod()
 		var parameters spec.ParameterList
-		shouldBodyCoding := method == "post" || method == "put"
-		consumeCoding := make([]spec.MethodCoding, 0) // "application/x-www-form-urlencoded", "multipart/form-data", "application/json"
+		shouldBodyCoding := method == "post" || method == "put" || method == "patch"
+		consumeCoding := make([]spec.MediaTypeCoding, 0) // "application/x-www-form-urlencoded", "multipart/form-data", "application/json"
 		var objCoding, formCoding int
 		for _, fieldDef := range w.Spec.FieldsOfBaseParam {
 			fieldSpec := fieldDef.FieldSpec
@@ -283,8 +283,8 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 			if fieldSpec.Anonymous && fieldSpecType == WebCtxType {
 				vals := attrs.AttrsWithValOnly()
 				for _, v := range vals {
-					if c, obj, b := CodingFormAttr(v.Val); b {
-						if obj {
+					if c, isObj, isCodingAttr := CodingFormAttr(v.Val); isCodingAttr {
+						if isObj {
 							objCoding++
 						} else {
 							formCoding++
@@ -318,7 +318,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 				if varKind == spec.VarKindUnsupported {
 					log.Fatalf("unsupport variable type: %v", fieldSpecType)
 				}
-				if Contains(paramNames, fieldDef.PreferredName) {
+				if Contains(pathParamNames, fieldDef.PreferredName) {
 					paramSpec.In = InPathWay
 				} else {
 					if attr, b := attrs.FirstAttrsWithKey("in"); b {
@@ -378,21 +378,21 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 			},
 			Description: "ok 200",
 		}
-		methodDef := spec.Operation{
+		operation := spec.Operation{
 			//Consumes:   consumeCoding,
-			//Produces:   []spec.MethodCoding{"application/json"},
+			//Produces:   []spec.MediaTypeCoding{"application/json"},
 			Parameters: parameters,
 			Responses:  spec.Responses{"200": spec.ResponseR{Response: &resp}},
 		}
-		def.AddMethod(fullPath, method, methodDef)
+		siteSpec.AddPathOperation(fullPath, method, operation)
 	}
 }
 
-func CodingFormAttr(v string) (coding spec.MethodCoding, objective bool, ok bool) {
+func CodingFormAttr(v string) (coding spec.MediaTypeCoding, isObjective bool, isCodingAttr bool) {
 	switch v {
 	case "form", "multipart":
 		return spec.MultipartForm, false, true
-	case "urlencoded":
+	case "urlenc", "urlencoded":
 		return spec.UrlEncoded, false, true
 	case "json":
 		return spec.JsonObject, true, true

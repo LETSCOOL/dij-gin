@@ -60,3 +60,12 @@ type MediaType struct {
 }
 
 type Content map[string]MediaType
+
+type MediaTypeCoding string
+
+const (
+	UrlEncoded    MediaTypeCoding = "application/x-www-form-urlencoded"
+	MultipartForm MediaTypeCoding = "multipart/form-data"
+	JsonObject    MediaTypeCoding = "application/json"
+	XmlObject     MediaTypeCoding = "application/xml"
+)

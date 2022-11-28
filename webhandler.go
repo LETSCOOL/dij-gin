@@ -32,7 +32,7 @@ func (w *HandlerWrapper) ReqPath() string {
 	return w.Spec.Path
 }
 
-func (w *HandlerWrapper) ConcatSwaggerPath(basePath string) (fullPath string, params []string) {
+func (w *HandlerWrapper) ConcatOpenapiPath(basePath string) (fullPath string, params []string) {
 	path := strings.TrimRight(basePath, "/") + "/" + w.ReqPath()
 	var pathComps []string
 	for _, comp := range strings.Split(path, "/") {

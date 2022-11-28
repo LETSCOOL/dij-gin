@@ -72,4 +72,26 @@ func main() {
 }
 ```
 
+### Tag
+
+#### Attributes
+##### About Coding/Media Type
+|    Key     |              Meaning              |
+|:----------:|:---------------------------------:|
+|    form    |        multipart/form-data        |
+| multipart  |        multipart/form-data        |
+|   urlenc   | application/x-www-form-urlencoded |
+| urlencoded | application/x-www-form-urlencoded |
+|    json    |         application/json          |
+|    xml     |          application/xml          |
+
+#### About data way
+|  Key   | Meaning |
+|:------:|:-------:|
+|  path  |         |
+| cookie |         |
+| query  |         |
+| header |         |
+|  body  |         |
+
 More examples: [go-examples](https://github.com/LETSCOOL/go-examples)

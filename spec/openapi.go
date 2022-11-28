@@ -39,7 +39,7 @@ type Openapi struct {
 	ExternalDocs *ExternalDoc `json:"externalDocs,omitempty"`
 }
 
-func (s *Openapi) AddMethod(path string, method string, def Operation) {
+func (s *Openapi) AddPathOperation(path string, method string, def Operation) {
 	if s.Paths == nil {
 		s.Paths = Paths{}
 	}
@@ -68,12 +68,3 @@ func (s *Openapi) AddMethod(path string, method string, def Operation) {
 	s.Paths[path] = p
 	// p[method] = def
 }
-
-type MethodCoding string
-
-const (
-	UrlEncoded    MethodCoding = "application/x-www-form-urlencoded"
-	MultipartForm MethodCoding = "multipart/form-data"
-	JsonObject    MethodCoding = "application/json"
-	XmlObject     MethodCoding = "application/xml"
-)

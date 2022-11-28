@@ -28,16 +28,17 @@ func IsTypeOfWebContext(typ reflect.Type) bool {
 type InWay = string
 
 const (
-	InHeaderWay = "header"
-	InQueryWay  = "query"
-	InPathWay   = "path"
-	InFormWay   = "formData"
-	InBodyWay   = "body"
+	InHeaderWay InWay = "header"   // one kind of way for parameter
+	InQueryWay  InWay = "query"    // one kind of way for parameter
+	InPathWay   InWay = "path"     // one kind of way for parameter
+	InCookieWay InWay = "cookie"   // one kind of way for parameter
+	InFormWay   InWay = "formData" // one kind of way for request body
+	InBodyWay   InWay = "body"     // one kind of way for request body
 )
 
 func IsCorrectInWay(way InWay) bool {
 	switch way {
-	case InHeaderWay, InQueryWay, InPathWay, InFormWay, InBodyWay:
+	case InHeaderWay, InQueryWay, InPathWay, InCookieWay, InFormWay, InBodyWay:
 		return true
 	}
 	return false
@@ -57,10 +58,15 @@ func (c *WebContext) iAmAWebContext() {
 
 func (c *WebContext) GetRequestValue(key string, instPtr any) (exists bool) {
 	var text string
+	var err error
 	if text, exists = c.GetQuery(key); !exists {
 		if text, exists = c.GetPostForm(key); !exists {
 			if text = c.Param(key); len(text) == 0 {
-				return false
+				if text = c.GetHeader(key); len(text) == 0 {
+					if text, err = c.Cookie(key); err != nil {
+						return false
+					}
+				}
 			}
 		}
 	}
@@ -77,6 +83,7 @@ func (c *WebContext) GetRequestValue(key string, instPtr any) (exists bool) {
 
 func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type, inWay InWay) (data any, exists bool) {
 	var text string
+	var err error
 	switch inWay {
 	case InHeaderWay:
 		text = c.GetHeader(key)
@@ -87,13 +94,17 @@ func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type, inWay 
 		if text, exists = c.GetQuery(key); !exists {
 			return nil, false
 		}
-	case InFormWay:
-		if text, exists = c.GetPostForm(key); !exists {
-			return nil, false
-		}
 	case InPathWay:
 		text = c.Param(key)
 		if exists = len(text) > 0; exists {
+			return nil, false
+		}
+	case InCookieWay:
+		if text, err = c.Cookie(key); err != nil {
+			return nil, false
+		}
+	case InFormWay:
+		if text, exists = c.GetPostForm(key); !exists {
 			return nil, false
 		}
 	default:
@@ -105,7 +116,9 @@ func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type, inWay 
 			if text, exists = c.GetPostForm(key); !exists {
 				if text = c.Param(key); len(text) == 0 {
 					if text = c.GetHeader(key); len(text) == 0 {
-						return nil, false
+						if text, err = c.Cookie(key); err != nil {
+							return nil, false
+						}
 					}
 				}
 			}
