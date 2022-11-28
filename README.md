@@ -72,26 +72,29 @@ func main() {
 }
 ```
 
-### Tag
+### Http Tag
 
 #### Attributes
-##### About Coding/Media Type
-|    Key     |              Meaning              |
-|:----------:|:---------------------------------:|
-|    form    |        multipart/form-data        |
-| multipart  |        multipart/form-data        |
-|   urlenc   | application/x-www-form-urlencoded |
-| urlencoded | application/x-www-form-urlencoded |
-|    json    |         application/json          |
-|    xml     |          application/xml          |
+##### Coding/Media Type for Request Input
+The http tag includes an attribute "[AttrKey]"
 
-#### About data way
-|  Key   | Meaning |
-|:------:|:-------:|
-|  path  |         |
-| cookie |         |
-| query  |         |
-| header |         |
-|  body  |         |
+|      AttrKey       | Meaning                           |
+|:------------------:|:----------------------------------|
+|  form, multipart   | multipart/form-data               |
+| urlenc, urlencoded | application/x-www-form-urlencoded |
+|        json        | application/json                  |
+|        xml         | application/xml                   |
+
+
+#### Data way for Request Input Variables
+The http tag includes an attribute "in=[AttrKey]"
+
+| AttrKey | Default situation                    | Meaning |
+|:-------:|:-------------------------------------|:--------|
+| header  |                                      |         |
+| cookie  |                                      |         |
+|  path   | If variable name is included in path |         |
+|  query  |                                      |         |
+|  body   |                                      |         |
 
 More examples: [go-examples](https://github.com/LETSCOOL/go-examples)

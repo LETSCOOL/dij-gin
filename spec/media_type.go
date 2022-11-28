@@ -59,7 +59,11 @@ type MediaType struct {
 	Encoding map[string]Encoding `json:"encoding,omitempty"`
 }
 
-type Content map[string]MediaType
+type Content map[MediaTypeCoding]MediaType
+
+func (c *Content) SetMediaType(coding MediaTypeCoding, mediaType MediaType) {
+	(*c)[coding] = mediaType
+}
 
 type MediaTypeCoding string
 

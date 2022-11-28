@@ -28,17 +28,16 @@ func IsTypeOfWebContext(typ reflect.Type) bool {
 type InWay = string
 
 const (
-	InHeaderWay InWay = "header"   // one kind of way for parameter
-	InQueryWay  InWay = "query"    // one kind of way for parameter
-	InPathWay   InWay = "path"     // one kind of way for parameter
-	InCookieWay InWay = "cookie"   // one kind of way for parameter
-	InFormWay   InWay = "formData" // one kind of way for request body
-	InBodyWay   InWay = "body"     // one kind of way for request body
+	InHeaderWay InWay = "header" // one kind of way for parameter
+	InCookieWay InWay = "cookie" // one kind of way for parameter
+	InQueryWay  InWay = "query"  // one kind of way for parameter
+	InPathWay   InWay = "path"   // one kind of way for parameter
+	InBodyWay   InWay = "body"   // one kind of way for request body
 )
 
 func IsCorrectInWay(way InWay) bool {
 	switch way {
-	case InHeaderWay, InQueryWay, InPathWay, InCookieWay, InFormWay, InBodyWay:
+	case InHeaderWay, InQueryWay, InPathWay, InCookieWay, InBodyWay:
 		return true
 	}
 	return false
@@ -103,7 +102,7 @@ func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type, inWay 
 		if text, err = c.Cookie(key); err != nil {
 			return nil, false
 		}
-	case InFormWay:
+	case InBodyWay:
 		if text, exists = c.GetPostForm(key); !exists {
 			return nil, false
 		}

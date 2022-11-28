@@ -273,6 +273,8 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		fullPath, pathParamNames := w.ConcatOpenapiPath(basePath)
 		method := w.ReqMethod()
 		var parameters spec.ParameterList
+		var bodySchemas []spec.SchemaR
+		var reqBody *spec.RequestBodyR
 		shouldBodyCoding := method == "post" || method == "put" || method == "patch"
 		consumeCoding := make([]spec.MediaTypeCoding, 0) // "application/x-www-form-urlencoded", "multipart/form-data", "application/json"
 		var objCoding, formCoding int
@@ -303,7 +305,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		if len(consumeCoding) > 0 && !shouldBodyCoding {
 			log.Fatalf("Only post or put method support body coding")
 		}
-		var formWayCnt, bodyWayCnt int
+		var preferPlainCoding, preferObjCoding int
 		for _, fieldDef := range w.Spec.FieldsOfBaseParam {
 			fieldSpec := fieldDef.FieldSpec
 			fieldSpecType := fieldSpec.Type
@@ -311,60 +313,92 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 			if fieldSpec.Anonymous && fieldSpecType == WebCtxType {
 				// ignore
 			} else {
-				paramSpec := spec.Parameter{
-					Name: fieldDef.PreferredName,
-				}
+				var inWay InWay
 				varKind := spec.GetVariableKind(fieldSpecType)
 				if varKind == spec.VarKindUnsupported {
 					log.Fatalf("unsupport variable type: %v", fieldSpecType)
 				}
 				if Contains(pathParamNames, fieldDef.PreferredName) {
-					paramSpec.In = InPathWay
+					inWay = InPathWay
 				} else {
 					if attr, b := attrs.FirstAttrsWithKey("in"); b {
 						in := attr.Val
 						if !IsCorrectInWay(in) {
 							log.Fatalf("unsupported in way: %s", in)
 						}
-						paramSpec.In = in
+						inWay = in
 					} else {
-						switch method {
-						case "post", "put", "patch":
-							switch varKind {
-							case spec.VarKindArray, spec.VarKindObject:
-								paramSpec.In = InBodyWay
-							default:
-								paramSpec.In = InFormWay
-							}
+						switch varKind {
+						case spec.VarKindArray, spec.VarKindObject:
+							preferObjCoding++
 						default:
-							paramSpec.In = InQueryWay
+							preferPlainCoding++
+						}
+						// use default way
+						if shouldBodyCoding {
+							inWay = InBodyWay
+						} else {
+							inWay = InQueryWay
 						}
 					}
 				}
-				paramSpec.ApplyType(fieldSpecType)
-				if attrs.ContainsAttrWithValOnly("required") {
-					paramSpec.Required = true
+				//
+				if inWay == InBodyWay {
+					// request body
+					schema := spec.SchemaR{}
+					schema.ApplyType(fieldSpecType)
+					bodySchemas = append(bodySchemas, schema)
+				} else {
+					// parameters
+					paramSpec := spec.Parameter{
+						Name: fieldDef.PreferredName,
+						In:   inWay,
+					}
+					paramSpec.ApplyType(fieldSpecType)
+					if attrs.ContainsAttrWithValOnly("required") {
+						paramSpec.Required = true
+					}
+
+					parameters = parameters.AppendParam(&paramSpec)
 				}
-				if paramSpec.In == InFormWay {
-					formWayCnt++
-				} else if paramSpec.In == InBodyWay {
-					bodyWayCnt++
-				}
-				parameters = parameters.AppendParam(&paramSpec)
 			}
 		}
 		if shouldBodyCoding && len(consumeCoding) == 0 {
-			if bodyWayCnt > 0 {
+			if preferObjCoding > 0 {
 				consumeCoding = append(consumeCoding, spec.JsonObject)
 			} else {
 				consumeCoding = append(consumeCoding, spec.UrlEncoded)
 			}
 		}
-		if formWayCnt > 0 && bodyWayCnt > 0 {
-			log.Fatalf("Form way variable and body way variable should not come together")
-		}
-		if bodyWayCnt > 1 {
-			log.Fatalf("Only support one body way variable")
+		//if preferPlainCoding > 0 && preferObjCoding > 0 {
+		//	log.Fatalf("Form way variable and body way variable should not come together")
+		//}
+		//if preferObjCoding > 1 {
+		//	log.Fatalf("Only support one body way variable")
+		//}
+
+		if shouldBodyCoding {
+			// At this moment, doesn't support ref RequestBody
+			reqBody = &spec.RequestBodyR{
+				RequestBody: &spec.RequestBody{},
+			}
+			var mainSchema spec.SchemaR
+			switch len(bodySchemas) {
+			case 0:
+				mainSchema = spec.SchemaR{}
+				mainSchema.ApplyType(reflect.TypeOf(""))
+				reqBody.Required = false
+			case 1:
+				mainSchema = bodySchemas[0]
+				reqBody.Required = true
+			default:
+				mainSchema.ApplyAllOf(bodySchemas...)
+				reqBody.Required = true
+			}
+
+			for _, coding := range consumeCoding {
+				reqBody.SetMediaType(coding, spec.MediaType{Schema: &mainSchema})
+			}
 		}
 
 		resp := spec.Response{
@@ -381,8 +415,9 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		operation := spec.Operation{
 			//Consumes:   consumeCoding,
 			//Produces:   []spec.MediaTypeCoding{"application/json"},
-			Parameters: parameters,
-			Responses:  spec.Responses{"200": spec.ResponseR{Response: &resp}},
+			Parameters:  parameters,
+			RequestBody: reqBody,
+			Responses:   spec.Responses{"200": spec.ResponseR{Response: &resp}},
 		}
 		siteSpec.AddPathOperation(fullPath, method, operation)
 	}

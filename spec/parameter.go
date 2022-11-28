@@ -5,9 +5,7 @@
 package spec
 
 import (
-	"fmt"
 	"reflect"
-	"strconv"
 )
 
 // Parameter Describes a single operation parameter.
@@ -190,34 +188,9 @@ type WithContent struct {
 	Content Content `json:"content,omitempty"`
 }
 
-// ApplyType coverts type in golang to json/swagger type
-// ref: https://swagger.io/docs/specification/data-models/data-types/
 func (p *Parameter) ApplyType(t reflect.Type) {
-	switch t.Kind() {
-	case reflect.Bool:
-		p.Schema = &SchemaR{Schema: &Schema{Type: "boolean"}}
-	case reflect.Int, reflect.Uint:
-		p.Schema = &SchemaR{Schema: &Schema{Type: "integer", Format: fmt.Sprintf("int%d", strconv.IntSize)}}
-	case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32:
-		p.Schema = &SchemaR{Schema: &Schema{Type: "integer", Format: "int32"}}
-	case reflect.Int64, reflect.Uint64:
-		p.Schema = &SchemaR{Schema: &Schema{Type: "integer", Format: "int64"}}
-	case reflect.Float64:
-		p.Schema = &SchemaR{Schema: &Schema{Type: "number", Format: "double"}}
-	case reflect.Float32:
-		p.Schema = &SchemaR{Schema: &Schema{Type: "number", Format: "float"}}
-	case reflect.String:
-		p.Schema = &SchemaR{Schema: &Schema{Type: "string"}}
-		// TODO: support datetime
-	case reflect.Struct, reflect.Map:
-		// TODO: can support map ?
-		p.Schema = &SchemaR{Schema: &Schema{Type: "object"}}
-	case reflect.Array, reflect.Slice:
-		p.Schema = &SchemaR{Schema: &Schema{Type: "array"}}
-		// TODO: set item type ?
-	default:
-		//
-	}
+	p.Schema = &SchemaR{}
+	p.Schema.ApplyType(t)
 }
 
 // ParameterR presents Parameter or Ref combination

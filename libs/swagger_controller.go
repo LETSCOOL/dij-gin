@@ -32,7 +32,8 @@ type SwaggerController struct {
 
 func (s *SwaggerController) Open(name string) (fs.File, error) {
 	if name == "swagger.json" || name == "./swagger.json" {
-		data, err := json.Marshal(s.Spec)
+		// TODO: switch marshal compact or pretty format by debug or production mode
+		data, err := json.MarshalIndent(s.Spec, "", "  ")
 		if err != nil {
 			return nil, err
 		}

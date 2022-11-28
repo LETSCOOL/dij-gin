@@ -4,6 +4,12 @@
 
 package spec
 
+import (
+	"fmt"
+	"reflect"
+	"strconv"
+)
+
 // The Schema Object allows the definition of input and output data types. These types can be objects, but also primitives and arrays.
 // This object is an extended subset of the JSON Schema Specification Wright Draft 00.
 // Refer to: https://swagger.io/specification/.
@@ -297,7 +303,7 @@ type Schema struct {
 	//   object MUST be an object, and each object MUST be a valid JSON Schema.
 	//   If absent, it can be considered the same as an empty object.
 	// Property definitions MUST be a Schema Object and not a standard JSON Schema (inline or referenced).
-	Properties map[string]Schema `json:"properties,omitempty"`
+	Properties map[string]SchemaR `json:"properties,omitempty"`
 
 	// **JSON** The value of "additionalProperties" MUST be a boolean or a schema.
 	//   If "additionalProperties" is absent, it may be considered present with an empty schema as a value.
@@ -311,7 +317,7 @@ type Schema struct {
 	//
 	// 所有不列在properties與patternProperties的屬性都要符合這additionProperties規範。
 	// 不存在表示任意物件、ture表示皆可、false表示不允許額外的屬性(都需要列在properties與patternProperties裏面)、Schema表示需要符合該定義。
-	AdditionalProperties *Schema `json:"additionalProperties,omitempty"`
+	AdditionalProperties *SchemaR `json:"additionalProperties,omitempty"`
 
 	// **JSON** The value of this keyword MUST be an array. This array MUST have at
 	//   least one element. Elements of this array MUST be strings, and MUST be unique.
@@ -385,27 +391,27 @@ type Schema struct {
 	//   An instance validates successfully against this keyword if it validates successfully against
 	//   all schemas defined by this keyword's value.
 	// Inline or referenced schema MUST be of a Schema Object and not a standard JSON Schema.
-	AllOf []Schema `json:"allOf,omitempty"`
+	AllOf []SchemaR `json:"allOf,omitempty"`
 
 	// **JSON** This keyword's value MUST be an array. This array MUST have at least one element.
 	//   Elements of the array MUST be objects.  Each object MUST be a valid JSON Schema.
 	//   An instance validates successfully against this keyword if it validates successfully against
 	//   at least one schema defined by this keyword's value.
 	// Inline or referenced schema MUST be of a Schema Object and not a standard JSON Schema.
-	AnyOf []Schema `json:"anyOf,omitempty"`
+	AnyOf []SchemaR `json:"anyOf,omitempty"`
 
 	// **JSON** This keyword's value MUST be an array. This array MUST have at least one element.
 	//   Elements of the array MUST be objects.  Each object MUST be a valid JSON Schema.
 	//   An instance validates successfully against this keyword if it validates successfully against
 	//   exactly one schema defined by this keyword's value.
 	// Inline or referenced schema MUST be of a Schema Object and not a standard JSON Schema.
-	OneOf []Schema `json:"oneOf,omitempty"`
+	OneOf []SchemaR `json:"oneOf,omitempty"`
 
 	// **JSON** This keyword's value MUST be an object. This object MUST be a valid JSON Schema.
 	//   An instance is valid against this keyword if it fails to validate successfully against
 	//   the schema defined by this keyword.
 	// Inline or referenced schema MUST be of a Schema Object and not a standard JSON Schema.
-	Not *Schema `json:"not,omitempty"`
+	Not *SchemaR `json:"not,omitempty"`
 
 	// **JSON** The value of "multipleOf" MUST be a number, strictly greater than 0.
 	//   A numeric instance is only valid if division by this keyword's value
@@ -509,4 +515,66 @@ type Schemas map[string]SchemaR
 type SchemaR struct {
 	*Schema `json:""`
 	Ref     string `json:"$ref,omitempty"`
+}
+
+// ApplyType coverts type in golang to json/swagger type
+// ref: https://swagger.io/docs/specification/data-models/data-types/
+func (s *Schema) ApplyType(t reflect.Type) {
+	switch t.Kind() {
+	case reflect.Bool:
+		s.Type = "boolean"
+	case reflect.Int, reflect.Uint:
+		s.Type = "integer"
+		s.Format = fmt.Sprintf("int%d", strconv.IntSize)
+	case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32:
+		s.Type = "integer"
+		s.Format = "int32"
+	case reflect.Int64, reflect.Uint64:
+		s.Type = "integer"
+		s.Format = "int64"
+	case reflect.Float64:
+		s.Type = "number"
+		s.Format = "double"
+	case reflect.Float32:
+		s.Type = "number"
+		s.Format = "float"
+	case reflect.String:
+		s.Type = "number"
+		s.Format = ""
+		// TODO: support datetime
+	case reflect.Struct, reflect.Map:
+		s.Type = "object"
+		s.Format = ""
+	case reflect.Array, reflect.Slice:
+		s.Type = "array"
+		s.Format = ""
+		// TODO: set item type ?
+	default:
+		//
+	}
+}
+
+func (s *SchemaR) ApplyOneOf(schemas ...SchemaR) {
+	s.OneOf = append(s.OneOf, schemas...)
+}
+
+func (s *SchemaR) ApplyAllOf(schemas ...SchemaR) {
+	s.AllOf = append(s.AllOf, schemas...)
+}
+
+func (s *SchemaR) ApplyAnyOf(schemas ...SchemaR) {
+	s.AnyOf = append(s.AnyOf, schemas...)
+}
+
+func (s *SchemaR) ApplyNot(schema SchemaR) {
+	s.Not = &schema
+}
+
+func (s *SchemaR) ApplyAdditionalProperties(schema SchemaR) {
+	s.AdditionalProperties = &schema
+}
+
+func (s *SchemaR) ApplyType(t reflect.Type) {
+	s.Schema = &Schema{}
+	s.Schema.ApplyType(t)
 }
