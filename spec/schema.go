@@ -6,6 +6,7 @@ package spec
 
 import (
 	"fmt"
+	. "github.com/letscool/lc-go/lg"
 	"log"
 	"reflect"
 	"strconv"
@@ -540,7 +541,7 @@ func (s *Schema) ApplyType(t reflect.Type) {
 		s.Type = "number"
 		s.Format = "float"
 	case reflect.String:
-		s.Type = "number"
+		s.Type = "string"
 		s.Format = ""
 	case reflect.Struct:
 		if t == TypeOfTime {
@@ -554,12 +555,24 @@ func (s *Schema) ApplyType(t reflect.Type) {
 				s.Required = required
 			}
 		}
+	case reflect.Map:
+		// TODO: better way?
+		s.Type = "object"
+		s.Format = ""
 	case reflect.Array, reflect.Slice:
 		s.Type = "array"
 		s.Format = ""
 		elemSchema := &SchemaR{}
 		elemSchema.ApplyType(t.Elem())
 		s.Items = elemSchema
+	case reflect.Pointer:
+		s.ApplyType(t.Elem())
+	case reflect.Interface:
+		if IsError(t) {
+			// TODO: assign an well-definition error object
+			s.Type = "object"
+			s.Format = ""
+		}
 	default:
 		//
 		log.Fatalf("scheam doesn't support this type: %v", t)
@@ -579,8 +592,8 @@ func (s *Schema) setProperties(t reflect.Type) (required []string) {
 			if len(name) == 0 || name == "_" {
 				continue
 			}
-			c := name[0]
-			if !(c >= 'A' && c <= 'Z') {
+
+			if !field.IsExported() {
 				continue
 			}
 			if s.Properties == nil {

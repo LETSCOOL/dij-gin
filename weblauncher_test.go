@@ -116,7 +116,7 @@ func (s *TestWebServer) GetRoot(ctx WebContext) {
 }
 
 func (s *TestWebServer) GetHello(ctx struct {
-	WebContext `http:"middleware=efg" description:""`
+	WebContext `http:"middleware=efg" description:"説嗨"`
 	a          float32
 }) {
 	ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/hello %f", ctx.a))
@@ -125,7 +125,7 @@ func (s *TestWebServer) GetHello(ctx struct {
 // PostJson shows post request with json style
 // curl: curl -X POST http://localhost:8000/json -H 'Content-Type: application/json' -d '{"a":123,"b":"data+b"}'
 func (s *TestWebServer) PostJson(ctx struct {
-	WebContext `http:"" description:""`
+	WebContext `http:"" description:"貼一個Json"`
 	json       struct {
 		A int    `form:"a" json:"a" binding:"required" http:""`
 		B string `form:"b" json:"b" binding:"required"`
@@ -143,21 +143,33 @@ type TestWebController1 struct {
 }
 
 func (c *TestWebController1) GetUserMe(ctx struct {
-	WebContext `http:"me, method=get, middleware=" description="取得使用者資訊"`
+	WebContext `http:"me, method=get, middleware=" description:"取得使用者資訊"`
+}) (result struct {
+	Default *string `http:"200,"`
+	Error   error
 }) {
 	ctx.IndentedJSON(http.StatusOK, "/user")
+
+	return
+}
+
+type User struct {
+	Uid  int
+	Name string
 }
 
 func (c *TestWebController1) GetUserById(ctx struct {
-	WebContext `http:":id/profile, method=get" description="取得使用者資訊"`
+	WebContext `http:":id/profile, method=get" description:"取得使用者資訊"`
 	id         int
 }) (result struct {
-	data *string `resp:"200,"`
+	Data *User `http:"200," description:"使用者資訊"`
 }) {
 	ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/user/%d", ctx.id))
 	fmt.Printf("Id: %d\n", ctx.id)
-	a := "234"
-	result.data = &a
+	result.Data = &User{
+		Uid:  ctx.id,
+		Name: "234",
+	}
 	return
 }
 
@@ -199,12 +211,24 @@ func TestWebServerExec(t *testing.T) {
 
 // go test ./ -v -run TestRegex
 func TestRegex(t *testing.T) {
-	t.Run("request name and method", func(t *testing.T) {
+	t.Run("request name and method from function name", func(t *testing.T) {
 		re := regexp.MustCompile(`^(get|post|put|patch|delete|head|connect|options|trace)`)
 		if v := re.Find([]byte(strings.ToLower("DeleteHello"))); len(v) == 0 {
 			t.Error("error regex: ", string(v))
 		} else {
 			t.Log(string(v))
+		}
+	})
+	t.Run("response code from field name", func(t *testing.T) {
+		re := regexp.MustCompile(`^((\w*[\D+|^][2-5]\d{2})|default)$`)
+		data := []string{"a2345", "a345", "a345b", "adefault9", "default300", "DeFault"}
+		for i, d := range data {
+			v := re.Find([]byte(strings.ToLower(d)))
+			if len(v) == 0 {
+				t.Logf("%d. %s ==> No match\n", i, d)
+			} else {
+				t.Logf("%d. %s ==> Found %s\n", i, d, string(v))
+			}
 		}
 	})
 }

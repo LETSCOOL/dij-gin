@@ -90,7 +90,7 @@ type RequestBodyR struct {
 	Ref          string `json:"$ref,omitempty"`
 }
 
-func (r *RequestBodyR) SetMediaType(coding MediaTypeCoding, mediaType MediaType) {
+func (r *RequestBodyR) SetMediaType(coding MediaTypeTitle, mediaType MediaType) {
 	if r.RequestBody == nil {
 		r.RequestBody = &RequestBody{Content: Content{}}
 	}

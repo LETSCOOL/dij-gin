@@ -19,6 +19,7 @@ import (
 const (
 	DefaultWebServerPort = 8000
 	HttpTagName          = "http"
+	DescriptionTagName   = "description"
 	WebConfigKey         = "webserver.config"
 	WebSpecRecord        = "webserver.spec.record"
 	WebValidator         = "webserver.validator"
@@ -276,22 +277,22 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		var bodySchemas []spec.SchemaR
 		var reqBody *spec.RequestBodyR
 		shouldBodyCoding := method == "post" || method == "put" || method == "patch"
-		consumeCoding := make([]spec.MediaTypeCoding, 0) // "application/x-www-form-urlencoded", "multipart/form-data", "application/json"
+		reqMime := make([]spec.MediaTypeTitle, 0) // "application/x-www-form-urlencoded", "multipart/form-data", "application/json"
 		var objCoding, formCoding int
-		for _, fieldDef := range w.Spec.FieldsOfBaseParam {
+		for _, fieldDef := range w.Spec.InFields {
 			fieldSpec := fieldDef.FieldSpec
 			fieldSpecType := fieldSpec.Type
 			attrs := fieldDef.Attrs
 			if fieldSpec.Anonymous && fieldSpecType == WebCtxType {
 				vals := attrs.AttrsWithValOnly()
 				for _, v := range vals {
-					if c, isObj, isCodingAttr := CodingFormAttr(v.Val); isCodingAttr {
-						if isObj {
+					if kind, title, reqSupports, _ := spec.IsSupportedMediaType(v.Val); reqSupports {
+						if kind == spec.ObjectiveMediaType {
 							objCoding++
 						} else {
 							formCoding++
 						}
-						consumeCoding = append(consumeCoding, c)
+						reqMime = append(reqMime, title)
 					}
 				}
 				break
@@ -302,11 +303,11 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		if objCoding > 0 && formCoding > 0 {
 			log.Fatalf("Obj-coding and form-coding should not set at same time.")
 		}
-		if len(consumeCoding) > 0 && !shouldBodyCoding {
+		if len(reqMime) > 0 && !shouldBodyCoding {
 			log.Fatalf("Only post or put method support body coding")
 		}
 		var preferPlainCoding, preferObjCoding int
-		for _, fieldDef := range w.Spec.FieldsOfBaseParam {
+		for _, fieldDef := range w.Spec.InFields {
 			fieldSpec := fieldDef.FieldSpec
 			fieldSpecType := fieldSpec.Type
 			attrs := fieldDef.Attrs
@@ -351,8 +352,9 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 				} else {
 					// parameters
 					paramSpec := spec.Parameter{
-						Name: fieldDef.PreferredName,
-						In:   inWay,
+						Name:        fieldDef.PreferredName,
+						In:          inWay,
+						Description: fieldDef.Description,
 					}
 					paramSpec.ApplyType(fieldSpecType)
 					if attrs.ContainsAttrWithValOnly("required") {
@@ -363,11 +365,11 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 				}
 			}
 		}
-		if shouldBodyCoding && len(consumeCoding) == 0 {
+		if shouldBodyCoding && len(reqMime) == 0 {
 			if preferObjCoding > 0 {
-				consumeCoding = append(consumeCoding, spec.JsonObject)
+				reqMime = append(reqMime, spec.JsonObject)
 			} else {
-				consumeCoding = append(consumeCoding, spec.UrlEncoded)
+				reqMime = append(reqMime, spec.UrlEncoded)
 			}
 		}
 		//if preferPlainCoding > 0 && preferObjCoding > 0 {
@@ -376,6 +378,39 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		//if preferObjCoding > 1 {
 		//	log.Fatalf("Only support one body way variable")
 		//}
+		responses := spec.Responses{}
+		for _, fieldDef := range w.Spec.OutFields {
+			fieldSpec := fieldDef.FieldSpec
+			fieldSpecType := fieldSpec.Type
+			attrs := fieldDef.Attrs
+			vals := attrs.AttrsWithValOnly()
+			var format spec.MediaTypeTitle
+			for _, v := range vals {
+				if _, title, _, respSupports := spec.IsSupportedMediaType(v.Val); respSupports {
+					format = title
+				}
+			}
+			if format == "" {
+				format = getPreferredResponseFormat(fieldDef.FieldSpec.Type)
+			}
+			schema := spec.SchemaR{}
+			schema.ApplyType(fieldSpecType)
+			content := spec.Content{}
+			content[format] = spec.MediaType{Schema: &schema}
+			resp := spec.Response{
+				Content:     content,
+				Description: fieldDef.Description,
+			}
+			code := fieldDef.PreferredName
+			if code == "" || code == "default" {
+				if IsError(fieldSpecType) {
+					code = "400"
+				} else {
+					code = getPreferredResponseCode(method)
+				}
+			}
+			responses[code] = spec.ResponseR{Response: &resp}
+		}
 
 		if shouldBodyCoding {
 			// At this moment, doesn't support ref RequestBody
@@ -396,43 +431,46 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 				reqBody.Required = true
 			}
 
-			for _, coding := range consumeCoding {
+			for _, coding := range reqMime {
 				reqBody.SetMediaType(coding, spec.MediaType{Schema: &mainSchema})
 			}
 		}
 
-		resp := spec.Response{
-			Content: spec.Content{
-				"application/json": {
-					Schema: &spec.SchemaR{Schema: &spec.Schema{
-						Type: "string",
-					},
-					},
-				},
-			},
-			Description: "ok 200",
-		}
 		operation := spec.Operation{
-			//Consumes:   consumeCoding,
-			//Produces:   []spec.MediaTypeCoding{"application/json"},
 			Parameters:  parameters,
 			RequestBody: reqBody,
-			Responses:   spec.Responses{"200": spec.ResponseR{Response: &resp}},
+			Responses:   responses,
+			Description: w.Spec.Description,
 		}
 		siteSpec.AddPathOperation(fullPath, method, operation)
 	}
 }
 
-func CodingFormAttr(v string) (coding spec.MediaTypeCoding, isObjective bool, isCodingAttr bool) {
-	switch v {
-	case "form", "multipart":
-		return spec.MultipartForm, false, true
-	case "urlenc", "urlencoded":
-		return spec.UrlEncoded, false, true
-	case "json":
-		return spec.JsonObject, true, true
-	case "xml":
-		return spec.XmlObject, true, true
+func getPreferredResponseCode(method string) string {
+	switch method {
+	case "get", "head", "trace":
+		return "200"
+	case "post", "put":
+		return "201"
 	}
-	return "", false, false
+	return "200"
+}
+
+func getPreferredResponseFormat(typ reflect.Type) spec.MediaTypeTitle {
+	switch typ.Kind() {
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float64, reflect.Float32,
+		reflect.String:
+		return spec.PlainText
+	case reflect.Struct,
+		reflect.Array, reflect.Slice:
+		return spec.JsonObject
+	case reflect.Interface:
+		return spec.JsonObject
+	case reflect.Pointer:
+		return getPreferredResponseFormat(typ.Elem())
+	}
+	return spec.PlainText
 }

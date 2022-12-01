@@ -76,14 +76,19 @@ func main() {
 
 #### Attributes
 ##### Coding/Media Type for Request Input
-The http tag includes an attribute "[AttrKey]"
+The http tag includes an attribute "[AttrKey]" for request and response body.
+and "mime=[MIME_TYPE]" for response body only.
 
-|      AttrKey       | Meaning                           |
-|:------------------:|:----------------------------------|
-|  form, multipart   | multipart/form-data               |
-| urlenc, urlencoded | application/x-www-form-urlencoded |
-|        json        | application/json                  |
-|        xml         | application/xml                   |
+|      AttrKey       | Req/Resp | MIME Type                         |
+|:------------------:|:--------:|:----------------------------------|
+|  form, multipart   |   Both   | multipart/form-data               |
+| urlenc, urlencoded |   Both   | application/x-www-form-urlencoded |
+|        json        |   Both   | application/json                  |
+|        xml         |   Both   | application/xml                   |
+|       plain        |   Resp   | text/plain                        |
+|     page, html     |   Resp   | text/html                         |
+|       octet        |   Resp   | application/octet-stream          |
+|     jpeg, png      |   Resp   | image/jpeg,png                    |
 
 
 #### Data way for Request Input Variables

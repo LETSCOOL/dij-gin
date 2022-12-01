@@ -5,8 +5,8 @@
 package spec
 
 import (
+	. "github.com/letscool/lc-go/lg"
 	"reflect"
-	"time"
 )
 
 type VariableKind int
@@ -17,12 +17,6 @@ const (
 	VarKindObject
 	VarKindArray
 )
-
-var TypeOfTime reflect.Type
-
-func init() {
-	TypeOfTime = reflect.TypeOf(time.Now())
-}
 
 func GetVariableKind(t reflect.Type) VariableKind {
 	switch t.Kind() {

@@ -59,17 +59,127 @@ type MediaType struct {
 	Encoding map[string]Encoding `json:"encoding,omitempty"`
 }
 
-type Content map[MediaTypeCoding]MediaType
+type Content map[MediaTypeTitle]MediaType
 
-func (c *Content) SetMediaType(coding MediaTypeCoding, mediaType MediaType) {
+func (c *Content) SetMediaType(coding MediaTypeTitle, mediaType MediaType) {
 	(*c)[coding] = mediaType
 }
 
-type MediaTypeCoding string
+type MediaTypeTitle string
 
 const (
-	UrlEncoded    MediaTypeCoding = "application/x-www-form-urlencoded"
-	MultipartForm MediaTypeCoding = "multipart/form-data"
-	JsonObject    MediaTypeCoding = "application/json"
-	XmlObject     MediaTypeCoding = "application/xml"
+	UrlEncoded    MediaTypeTitle = "application/x-www-form-urlencoded"
+	MultipartForm MediaTypeTitle = "multipart/form-data"
+	PlainText     MediaTypeTitle = "text/plain"
+	JsonObject    MediaTypeTitle = "application/json"
+	XmlObject     MediaTypeTitle = "application/xml"
+	HtmlPage      MediaTypeTitle = "text/html"
+	OctetStream   MediaTypeTitle = "application/octet-stream"
+	PngImage      MediaTypeTitle = "image/png"
+	JpegImage     MediaTypeTitle = "image/jpeg"
 )
+
+type MediaTypeKind int
+
+const (
+	UnsupportedMediaType MediaTypeKind = iota
+	PlainMediaType
+	ObjectiveMediaType
+	StreamMediaType
+)
+
+type MediaTypeSupport struct {
+	Abbr  []string
+	Title MediaTypeTitle
+	Kind  MediaTypeKind
+	Req   bool // request supports this Title
+	Resp  bool // response supports this Title
+}
+
+var mediaTypeSupportList []MediaTypeSupport
+var mediaTypeSupports map[string]MediaTypeSupport
+
+func init() {
+	mediaTypeSupportList = []MediaTypeSupport{
+		{
+			Abbr:  []string{"urlenc", "urlencoded"},
+			Title: UrlEncoded,
+			Kind:  PlainMediaType,
+			Req:   true,
+			Resp:  true,
+		},
+		{
+			Abbr:  []string{"form", "multipart"},
+			Title: MultipartForm,
+			Kind:  PlainMediaType,
+			Req:   true,
+			Resp:  true,
+		},
+		{
+			Abbr:  []string{"plain"},
+			Title: PlainText,
+			Kind:  PlainMediaType,
+			Req:   false,
+			Resp:  true,
+		},
+		{
+			Abbr:  []string{"json"},
+			Title: JsonObject,
+			Kind:  ObjectiveMediaType,
+			Req:   true,
+			Resp:  true,
+		},
+		{
+			Abbr:  []string{"xml"},
+			Title: XmlObject,
+			Kind:  ObjectiveMediaType,
+			Req:   true,
+			Resp:  true,
+		},
+		{
+			Abbr:  []string{"html", "page"},
+			Title: HtmlPage,
+			Kind:  ObjectiveMediaType,
+			Req:   false,
+			Resp:  true,
+		},
+		{
+			Abbr:  []string{"octet", "stream"},
+			Title: OctetStream,
+			Kind:  StreamMediaType,
+			Req:   false,
+			Resp:  true,
+		},
+		{
+			Abbr:  []string{"png"},
+			Title: PngImage,
+			Kind:  StreamMediaType,
+			Req:   false,
+			Resp:  true,
+		},
+		{
+			Abbr:  []string{"jpeg"},
+			Title: JpegImage,
+			Kind:  StreamMediaType,
+			Req:   false,
+			Resp:  true,
+		},
+	}
+
+	mediaTypeSupports = map[string]MediaTypeSupport{}
+
+	for _, s := range mediaTypeSupportList {
+		for _, abbr := range s.Abbr {
+			mediaTypeSupports[abbr] = s
+		}
+	}
+}
+
+// IsSupportedMediaType gets media type information.
+func IsSupportedMediaType(abbr string) (kind MediaTypeKind, title MediaTypeTitle, supportReq bool, supportResp bool) {
+	if support, ok := mediaTypeSupports[abbr]; ok {
+		return support.Kind, support.Title, support.Req, support.Resp
+	}
+	kind = UnsupportedMediaType
+	return
+}
