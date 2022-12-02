@@ -113,7 +113,7 @@ func init() {
 			Title: MultipartForm,
 			Kind:  PlainMediaType,
 			Req:   true,
-			Resp:  true,
+			Resp:  false,
 		},
 		{
 			Abbr:  []string{"plain"},
@@ -181,5 +181,10 @@ func IsSupportedMediaType(abbr string) (kind MediaTypeKind, title MediaTypeTitle
 		return support.Kind, support.Title, support.Req, support.Resp
 	}
 	kind = UnsupportedMediaType
+	return
+}
+
+func GetSupportedMediaType(abbr string) (support MediaTypeSupport, ok bool) {
+	support, ok = mediaTypeSupports[abbr]
 	return
 }

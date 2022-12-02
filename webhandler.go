@@ -13,16 +13,18 @@ import (
 	"log"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
 var reqRegex, middleRegex, codeRegex *regexp.Regexp
+var TypeOfWebError reflect.Type
 
 func init() {
 	reqRegex = regexp.MustCompile(`^(get|post|put|patch|delete|head|connect|options|trace)`)
 	middleRegex = regexp.MustCompile(`^(handle)`)
 	codeRegex = regexp.MustCompile(`^((\w*[\D+|^][2-5]\d{2})|default)$`)
-
+	TypeOfWebError = reflect.TypeOf(WebError{})
 }
 
 type HandlerWrapper struct {
@@ -114,19 +116,10 @@ type BaseParamField struct {
 	Description   string
 }
 
-func (c *BaseParamField) preferredText(key string, allowedValOnly bool, allowedFieldName bool) string {
+func (c *BaseParamField) preferredText(key string, allowedFirstValOnly bool, allowedFieldName bool) string {
 	if c.ExistsTag {
-		if allowedValOnly {
-			if attr, ok := c.Attrs.FirstAttrWithValOnly(); ok {
-				if len(attr.Val) > 0 {
-					return attr.Val
-				}
-			}
-		}
-		if attr, ok := c.Attrs.FirstAttrsWithKey(key); ok {
-			if len(attr.Val) > 0 {
-				return attr.Val
-			}
+		if name, ok := c.Attrs.PreferredName(key, allowedFirstValOnly); ok {
+			return name
 		}
 	}
 	if allowedFieldName {
@@ -135,9 +128,56 @@ func (c *BaseParamField) preferredText(key string, allowedValOnly bool, allowedF
 	return ""
 }
 
-type ErrorResponse interface {
+func (c *BaseParamField) SupportedMediaTypesForRequest() []spec.MediaTypeSupport {
+	var list []spec.MediaTypeSupport
+	for _, v := range c.Attrs.AttrsWithValOnly() {
+		if support, ok := spec.GetSupportedMediaType(v.Val); ok && support.Req {
+			list = append(list, support)
+		}
+	}
+	return list
+}
+
+func (c *BaseParamField) PreferredMediaTypeTitleForResponse() spec.MediaTypeTitle {
+	for _, v := range c.Attrs.AttrsWithValOnly() {
+		if support, ok := spec.GetSupportedMediaType(v.Val); ok && support.Resp {
+			return support.Title
+		}
+	}
+	return GetPreferredResponseFormat(c.FieldSpec.Type)
+}
+
+func GetPreferredResponseFormat(typ reflect.Type) spec.MediaTypeTitle {
+	switch typ.Kind() {
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float64, reflect.Float32,
+		reflect.String:
+		return spec.PlainText
+	case reflect.Struct,
+		reflect.Array, reflect.Slice:
+		return spec.JsonObject
+	case reflect.Interface:
+		return spec.JsonObject
+	case reflect.Pointer:
+		return GetPreferredResponseFormat(typ.Elem())
+	}
+	return spec.PlainText
+}
+
+type WebError struct {
 	error
-	Code() string
+	Message string `json:"message"`
+	Code    string `json:"code"`
+}
+
+func ToWebError(err error, code string) WebError {
+	return WebError{
+		error:   err,
+		Message: err.Error(),
+		Code:    code,
+	}
 }
 
 // GenerateHandlerWrappers generates handler for the instance
@@ -233,7 +273,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 								}
 								//fmt.Printf("I'm in")
 								outData := reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{baseParamInstVal})
-								generateOutputData(c, methodName, outData)
+								generateOutputData(c, methodName, outData, hdlSpec)
 							},
 						})
 					} else {
@@ -248,7 +288,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 								ctx := WebContext{c}
 								//fmt.Printf("I'm in")
 								outData := reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{reflect.ValueOf(ctx)})
-								generateOutputData(c, methodName, outData)
+								generateOutputData(c, methodName, outData, hdlSpec)
 							},
 						})
 					}
@@ -369,13 +409,85 @@ func analyzeOutBaseParam(baseParamType reflect.Type, _ HandlerWrapperPurpose, hd
 		} else {
 			code = ""
 		}
+		if code == "" || code == "default" {
+			if IsError(fieldType) {
+				code = "400"
+			} else {
+				code = getPreferredResponseCode(hdlSpec.Method)
+			}
+		}
 		def.PreferredName = code
 		hdlSpec.OutFields = append(hdlSpec.OutFields, def)
 	}
 }
 
-func generateOutputData(c *gin.Context, method string, output []reflect.Value) {
-	/*for _, d := range output {
-		c.JSON()
-	}*/
+func getPreferredResponseCode(method string) string {
+	switch method {
+	case "get", "head", "trace":
+		return "200"
+	case "post", "put":
+		return "201"
+	}
+	return "200"
+}
+
+func generateOutputData(c *gin.Context, method string, output []reflect.Value, hdlSpec HandlerSpec) {
+	if len(output) != 1 || len(hdlSpec.OutFields) == 0 {
+		return
+	}
+	resultValue := output[0]
+
+OutputData:
+	for _, field := range hdlSpec.OutFields {
+		fieldValue := resultValue.Field(field.Index)
+		if fieldValue.IsNil() {
+			continue
+		}
+		format := field.PreferredMediaTypeTitleForResponse()
+		code, _ := strconv.Atoi(field.PreferredName)
+
+		var v any
+		if typ := field.FieldSpec.Type; typ.Kind() == reflect.Interface {
+			// interface kind should only be error
+			if IsError(typ) {
+				v = ToWebError(fieldValue.Interface().(error), field.PreferredName)
+			}
+		} else {
+			v = fieldValue.Elem().Interface()
+		}
+
+		// text format
+		if text, ok := v.(string); ok {
+			c.String(code, string(format), text)
+			break OutputData
+		}
+
+		// byte array
+		if binary, ok := v.([]byte); ok {
+			c.Data(code, string(format), binary)
+			break OutputData
+		}
+
+		switch format {
+		case spec.UrlEncoded:
+			// TODO: implement marshal struct
+		case spec.PlainText:
+			c.String(code, string(format), fmt.Sprint(v))
+			break OutputData
+		case spec.JsonObject:
+			c.JSON(code, v)
+			break OutputData
+		case spec.XmlObject:
+			c.XML(code, v)
+			break OutputData
+		case spec.HtmlPage:
+			c.String(code, string(format), v)
+			break OutputData
+		case spec.OctetStream, spec.PngImage, spec.JpegImage:
+			// TODO: implement reader or something?
+		}
+
+		log.Printf("unsupported response format(%s)", format)
+		break
+	}
 }

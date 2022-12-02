@@ -81,8 +81,8 @@ and "mime=[MIME_TYPE]" for response body only.
 
 |      AttrKey       | Req/Resp | MIME Type                         |
 |:------------------:|:--------:|:----------------------------------|
-|  form, multipart   |   Both   | multipart/form-data               |
-| urlenc, urlencoded |   Both   | application/x-www-form-urlencoded |
+|  form, multipart   |   Req    | multipart/form-data               |
+| urlenc, urlencoded |   BOTH   | application/x-www-form-urlencoded |
 |        json        |   Both   | application/json                  |
 |        xml         |   Both   | application/xml                   |
 |       plain        |   Resp   | text/plain                        |

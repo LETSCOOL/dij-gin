@@ -282,18 +282,14 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		for _, fieldDef := range w.Spec.InFields {
 			fieldSpec := fieldDef.FieldSpec
 			fieldSpecType := fieldSpec.Type
-			attrs := fieldDef.Attrs
 			if fieldSpec.Anonymous && fieldSpecType == WebCtxType {
-				vals := attrs.AttrsWithValOnly()
-				for _, v := range vals {
-					if kind, title, reqSupports, _ := spec.IsSupportedMediaType(v.Val); reqSupports {
-						if kind == spec.ObjectiveMediaType {
-							objCoding++
-						} else {
-							formCoding++
-						}
-						reqMime = append(reqMime, title)
+				for _, mt := range fieldDef.SupportedMediaTypesForRequest() {
+					if mt.Kind == spec.ObjectiveMediaType {
+						objCoding++
+					} else {
+						formCoding++
 					}
+					reqMime = append(reqMime, mt.Title)
 				}
 				break
 			} else {
@@ -382,19 +378,13 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		for _, fieldDef := range w.Spec.OutFields {
 			fieldSpec := fieldDef.FieldSpec
 			fieldSpecType := fieldSpec.Type
-			attrs := fieldDef.Attrs
-			vals := attrs.AttrsWithValOnly()
-			var format spec.MediaTypeTitle
-			for _, v := range vals {
-				if _, title, _, respSupports := spec.IsSupportedMediaType(v.Val); respSupports {
-					format = title
-				}
-			}
-			if format == "" {
-				format = getPreferredResponseFormat(fieldDef.FieldSpec.Type)
-			}
+			format := fieldDef.PreferredMediaTypeTitleForResponse()
 			schema := spec.SchemaR{}
-			schema.ApplyType(fieldSpecType)
+			if IsError(fieldSpecType) {
+				schema.ApplyType(TypeOfWebError)
+			} else {
+				schema.ApplyType(fieldSpecType)
+			}
 			content := spec.Content{}
 			content[format] = spec.MediaType{Schema: &schema}
 			resp := spec.Response{
@@ -402,13 +392,6 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 				Description: fieldDef.Description,
 			}
 			code := fieldDef.PreferredName
-			if code == "" || code == "default" {
-				if IsError(fieldSpecType) {
-					code = "400"
-				} else {
-					code = getPreferredResponseCode(method)
-				}
-			}
 			responses[code] = spec.ResponseR{Response: &resp}
 		}
 
@@ -444,33 +427,4 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		}
 		siteSpec.AddPathOperation(fullPath, method, operation)
 	}
-}
-
-func getPreferredResponseCode(method string) string {
-	switch method {
-	case "get", "head", "trace":
-		return "200"
-	case "post", "put":
-		return "201"
-	}
-	return "200"
-}
-
-func getPreferredResponseFormat(typ reflect.Type) spec.MediaTypeTitle {
-	switch typ.Kind() {
-	case reflect.Bool,
-		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float64, reflect.Float32,
-		reflect.String:
-		return spec.PlainText
-	case reflect.Struct,
-		reflect.Array, reflect.Slice:
-		return spec.JsonObject
-	case reflect.Interface:
-		return spec.JsonObject
-	case reflect.Pointer:
-		return getPreferredResponseFormat(typ.Elem())
-	}
-	return spec.PlainText
 }

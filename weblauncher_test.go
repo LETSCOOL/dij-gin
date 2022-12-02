@@ -164,8 +164,8 @@ func (c *TestWebController1) GetUserById(ctx struct {
 }) (result struct {
 	Data *User `http:"200," description:"使用者資訊"`
 }) {
-	ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/user/%d", ctx.id))
-	fmt.Printf("Id: %d\n", ctx.id)
+	//ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/user/%d", ctx.id))
+	//fmt.Printf("Id: %d\n", ctx.id)
 	result.Data = &User{
 		Uid:  ctx.id,
 		Name: "234",
@@ -221,13 +221,18 @@ func TestRegex(t *testing.T) {
 	})
 	t.Run("response code from field name", func(t *testing.T) {
 		re := regexp.MustCompile(`^((\w*[\D+|^][2-5]\d{2})|default)$`)
-		data := []string{"a2345", "a345", "a345b", "adefault9", "default300", "DeFault"}
+		data := []struct{ data, result string }{
+			{"a2345", ""}, {"a345", "a345"}, {"adefault9", ""},
+			{"default300", "default300"}, {"DeFault", "default"},
+		}
 		for i, d := range data {
-			v := re.Find([]byte(strings.ToLower(d)))
-			if len(v) == 0 {
-				t.Logf("%d. %s ==> No match\n", i, d)
-			} else {
-				t.Logf("%d. %s ==> Found %s\n", i, d, string(v))
+			v := re.Find([]byte(strings.ToLower(d.data)))
+			if d.result != string(v) {
+				if len(v) == 0 {
+					t.Errorf("%d. %s ==> No match\n", i, d.data)
+				} else {
+					t.Errorf("%d. %s ==> Found %s\n", i, d.data, string(v))
+				}
 			}
 		}
 	})

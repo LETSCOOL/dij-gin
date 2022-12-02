@@ -569,7 +569,7 @@ func (s *Schema) ApplyType(t reflect.Type) {
 		s.ApplyType(t.Elem())
 	case reflect.Interface:
 		if IsError(t) {
-			// TODO: assign an well-definition error object
+			// TODO: assign a well-definition error object
 			s.Type = "object"
 			s.Format = ""
 		}
@@ -584,8 +584,10 @@ func (s *Schema) setProperties(t reflect.Type) (required []string) {
 		field := t.Field(i)
 		if field.Anonymous {
 			// extended/embedded struct
-			r := s.setProperties(field.Type)
-			required = append(required, r...)
+			if field.IsExported() {
+				r := s.setProperties(field.Type)
+				required = append(required, r...)
+			}
 		} else {
 			// TODO: analyze tag, check required
 			name := field.Name
