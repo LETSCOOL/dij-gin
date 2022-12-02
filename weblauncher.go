@@ -17,13 +17,12 @@ import (
 )
 
 const (
-	DefaultWebServerPort = 8000
-	HttpTagName          = "http"
-	DescriptionTagName   = "description"
-	WebConfigKey         = "webserver.config"
-	WebSpecRecord        = "webserver.spec.record"
-	WebValidator         = "webserver.validator"
-	WebDijRef            = "webserver.dij.ref"
+	HttpTagName        = "http"
+	DescriptionTagName = "description"
+	WebConfigKey       = "webserver.config"
+	WebSpecRecord      = "webserver.spec.record"
+	WebValidator       = "webserver.validator"
+	WebDijRef          = "webserver.dij.ref"
 )
 
 func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.DependencyReferencePtr, error) {
@@ -87,7 +86,7 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 	ref[WebSpecRecord] = &website
 	// setup validator
 	v := validator.New()
-	v.SetTagName("binding")
+	v.SetTagName(config.ValidatorTagName)
 	ref[WebValidator] = v
 	// save ref self
 	ref[WebDijRef] = &ref
@@ -164,7 +163,7 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 			} else {
 				//fmt.Printf("middleware load from dij: %v\n", fieldTyp)
 			}
-			wrappers := GenerateHandlerWrappers(fieldIf, HandlerForMid)
+			wrappers := GenerateHandlerWrappers(fieldIf, HandlerForMid, refPtr)
 			for _, w := range wrappers {
 				fmt.Printf("%v %v\n", w.ReqMethod(), w.ReqPath())
 				_, exists := mwHdlWrappers[w.ReqPath()]
@@ -206,8 +205,7 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 		}
 		fmt.Printf("Set router for %v\n", instType)
 		if webRoutes, ok := routers.(WebRoutes); ok {
-			siteSpec := (*refPtr)[WebSpecRecord].(*spec.Openapi)
-			setupRoutesHandlers(webRoutes, instPtr, mwHdlWrappers, siteSpec)
+			setupRoutesHandlers(webRoutes, instPtr, mwHdlWrappers, refPtr)
 			ctrl := instPtr.(WebControllerSpec)
 			ctrl.SetupRouter(router, instPtr)
 		} else {
@@ -252,10 +250,10 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 }
 
 // setupRoutesHandlers set routing path for controller
-func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, siteSpec *spec.Openapi) {
+func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, refPtr dij.DependencyReferencePtr) {
 	basePath := routes.BasePath()
-
-	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq)
+	siteSpec := (*refPtr)[WebSpecRecord].(*spec.Openapi)
+	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq, refPtr)
 	for _, w := range wrappers {
 		// process gin structure
 		var handlers []gin.HandlerFunc

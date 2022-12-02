@@ -160,14 +160,14 @@ type User struct {
 
 func (c *TestWebController1) GetUserById(ctx struct {
 	WebContext `http:":id/profile, method=get" description:"取得使用者資訊"`
-	id         int
+	Id         int `http:"id" validate:"gte=100,lte=999"`
 }) (result struct {
 	Data *User `http:"200," description:"使用者資訊"`
 }) {
 	//ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/user/%d", ctx.id))
 	//fmt.Printf("Id: %d\n", ctx.id)
 	result.Data = &User{
-		Uid:  ctx.id,
+		Uid:  ctx.Id,
 		Name: "234",
 	}
 	return

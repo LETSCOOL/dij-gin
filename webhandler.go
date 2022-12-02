@@ -7,10 +7,12 @@ package dij_gin
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/letscool/dij-gin/spec"
 	"github.com/letscool/lc-go/dij"
 	. "github.com/letscool/lc-go/lg"
 	"log"
+	"net/http"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -182,7 +184,7 @@ func ToWebError(err error, code string) WebError {
 
 // GenerateHandlerWrappers generates handler for the instance
 // TODO: consider to cache result for same instance.
-func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []HandlerWrapper {
+func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose, refPtr dij.DependencyReferencePtr) []HandlerWrapper {
 	wrappers := make([]HandlerWrapper, 0)
 	instPtrType := reflect.TypeOf(instPtr)
 	handleMethodRegex := purpose.Regexp()
@@ -221,6 +223,8 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, baseParamType)
 						//fmt.Printf("\t%s\n", baseParamType.Name())
 						analyzeInBaseParam(baseParamType, purpose, &hdlSpec)
+
+						validator := (*refPtr)[WebValidator].(*validator.Validate)
 
 						wrappers = append(wrappers, HandlerWrapper{
 							hdlSpec,
@@ -272,8 +276,13 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose) []Handl
 									}
 								}
 								//fmt.Printf("I'm in")
-								outData := reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{baseParamInstVal})
-								generateOutputData(c, methodName, outData, hdlSpec)
+								if err := validator.Struct(baseParamInstPtrVal.Interface()); err != nil {
+									webErr := ToWebError(err, strconv.Itoa(http.StatusBadRequest))
+									c.JSON(http.StatusBadRequest, webErr)
+								} else {
+									outData := reflect.ValueOf(instPtr).MethodByName(methodName).Call([]reflect.Value{baseParamInstVal})
+									generateOutputData(c, methodName, outData, hdlSpec)
+								}
 							},
 						})
 					} else {

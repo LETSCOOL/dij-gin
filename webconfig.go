@@ -4,12 +4,18 @@
 
 package dij_gin
 
+const (
+	DefaultWebServerPort    = 8000
+	DefaultValidatorTagName = "validate"
+)
+
 type WebConfig struct {
-	Address  string // default is empty
-	Port     int    // if not setting, 8000 will be used.
-	MaxConn  int
-	BasePath string   // Default is empty
-	Schemes  []string // ex: "http", "https". Default is "https".
+	Address          string // default is empty
+	Port             int    // if not setting, 8000 will be used.
+	MaxConn          int
+	BasePath         string   // Default is empty
+	Schemes          []string // ex: "http", "https". Default is "https".
+	ValidatorTagName string   // Default is "validate", but go-gin preferred "binding".
 }
 
 // NewWebConfig returns an instance with default values.
@@ -29,6 +35,9 @@ func (c *WebConfig) ApplyDefaultValues() {
 	}
 	if c.Schemes == nil || len(c.Schemes) == 0 {
 		c.Schemes = []string{"https"}
+	}
+	if c.ValidatorTagName == "" {
+		c.ValidatorTagName = "validate"
 	}
 }
 
