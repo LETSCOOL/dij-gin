@@ -9,13 +9,23 @@ const (
 	DefaultValidatorTagName = "validate"
 )
 
+type RuntimeMode string
+
+const (
+	RtProdMode    RuntimeMode = "prod"
+	RtDevMode     RuntimeMode = "dev"
+	RtDebugMode   RuntimeMode = "debug"
+	RtTestingMode RuntimeMode = "test"
+)
+
 type WebConfig struct {
 	Address          string // default is empty
 	Port             int    // if not setting, 8000 will be used.
 	MaxConn          int
-	BasePath         string   // Default is empty
-	Schemes          []string // ex: "http", "https". Default is "https".
-	ValidatorTagName string   // Default is "validate", but go-gin preferred "binding".
+	BasePath         string      // Default is empty
+	ValidatorTagName string      // Default is "validate", but go-gin preferred "binding".
+	RtMode           RuntimeMode // Default is "dev"
+	OpenApi          OpenApiConfig
 }
 
 // NewWebConfig returns an instance with default values.
@@ -33,26 +43,17 @@ func (c *WebConfig) ApplyDefaultValues() {
 	if c.Port == 0 {
 		c.Port = DefaultWebServerPort
 	}
-	if c.Schemes == nil || len(c.Schemes) == 0 {
-		c.Schemes = []string{"https"}
-	}
 	if c.ValidatorTagName == "" {
-		c.ValidatorTagName = "validate"
+		c.ValidatorTagName = DefaultValidatorTagName
 	}
+	if c.RtMode == "" {
+		c.RtMode = RtDevMode
+	}
+	c.OpenApi.ApplyDefaultValues()
 }
 
-func (c *WebConfig) UseHttpOnly() *WebConfig {
-	c.Schemes = []string{"http"}
-	return c
-}
-
-func (c *WebConfig) UseHttpsOnly() *WebConfig {
-	c.Schemes = []string{"https"}
-	return c
-}
-
-func (c *WebConfig) UseHttpAndHttps() *WebConfig {
-	c.Schemes = []string{"https", "http"}
+func (c *WebConfig) SetRtMode(mode RuntimeMode) *WebConfig {
+	c.RtMode = mode
 	return c
 }
 
@@ -69,4 +70,54 @@ func (c *WebConfig) SetPort(port int) *WebConfig {
 func (c *WebConfig) SetBasePath(path string) *WebConfig {
 	c.BasePath = path
 	return c
+}
+
+func (c *WebConfig) SetOpenApi(f func(o *OpenApiConfig)) *WebConfig {
+	f(&c.OpenApi)
+	return c
+}
+
+type OpenApiConfig struct {
+	Enabled bool     // Default is false
+	Schemes []string // ex: "http", "https". Default is "https".
+	DocPath string   // Default is "doc"
+}
+
+func (o *OpenApiConfig) ApplyDefaultValues() {
+	if o.Schemes == nil || len(o.Schemes) == 0 {
+		o.Schemes = []string{"https"}
+	}
+	if o.DocPath == "" {
+		o.DocPath = "doc"
+	}
+}
+
+func (o *OpenApiConfig) UseHttpOnly() *OpenApiConfig {
+	o.Schemes = []string{"http"}
+	return o
+}
+
+func (o *OpenApiConfig) UseHttpsOnly() *OpenApiConfig {
+	o.Schemes = []string{"https"}
+	return o
+}
+
+func (o *OpenApiConfig) UseHttpAndHttps() *OpenApiConfig {
+	o.Schemes = []string{"https", "http"}
+	return o
+}
+
+func (o *OpenApiConfig) Enable() *OpenApiConfig {
+	o.Enabled = true
+	return o
+}
+
+func (o *OpenApiConfig) SetEnabled(en bool) *OpenApiConfig {
+	o.Enabled = en
+	return o
+}
+
+func (o *OpenApiConfig) SetDocPath(path string) *OpenApiConfig {
+	o.DocPath = path
+	return o
 }

@@ -199,7 +199,11 @@ func (m *TestWebMiddleware) HandleEfg(ctx struct {
 func TestWebServerExec(t *testing.T) {
 	t.Run("dij", func(t *testing.T) {
 		config := NewWebConfig().
-			UseHttpOnly().SetAddress("localhost")
+			SetAddress("localhost").
+			SetRtMode(RtDevMode).
+			SetOpenApi(func(o *OpenApiConfig) {
+				o.SetEnabled(true).UseHttpOnly().SetDocPath("doc")
+			})
 		t.Log(config)
 		wsTyp := reflect.TypeOf(TestWebServer{})
 		//dij.EnableLog()

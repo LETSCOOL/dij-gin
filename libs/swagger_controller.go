@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	. "github.com/letscool/dij-gin"
 	"github.com/letscool/dij-gin/spec"
+	"github.com/letscool/lc-go/dij"
 	"github.com/letscool/lc-go/io"
 	"io/fs"
 	"net/http"
@@ -27,13 +28,14 @@ var content embed.FS
 type SwaggerController struct {
 	WebController `http:""`
 
-	Spec *spec.Openapi `di:"webserver.spec.record"`
+	ref         *dij.DependencyReference `di:"webserver.dij.ref"`
+	openapiSpec *spec.Openapi
 }
 
 func (s *SwaggerController) Open(name string) (fs.File, error) {
 	if name == "swagger.json" || name == "./swagger.json" {
 		// TODO: switch marshal compact or pretty format by debug or production mode
-		data, err := json.MarshalIndent(s.Spec, "", "  ")
+		data, err := json.MarshalIndent(s.openapiSpec, "", "  ")
 		if err != nil {
 			return nil, err
 		}
@@ -49,14 +51,9 @@ func (s *SwaggerController) Open(name string) (fs.File, error) {
 }
 
 func (s *SwaggerController) SetupRouter(router WebRouter, _ ...any) {
-	//http.FileSystem()
-	//fSys, err := fs.Sub(content, "swagger-ui-dist/4.15.5")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	router.StaticFS("docs", http.FS(s))
-	//router.GET(".docs/swagger.json", func(ctx *gin.Context) {
-	//	ctx.String(200, swaggerJson)
-	//})
-
+	if rec, ok := (*(s.ref))[WebSpecRecord]; ok {
+		config := (*(s.ref))[WebConfigKey].(*WebConfig)
+		s.openapiSpec = rec.(*spec.Openapi)
+		router.StaticFS(config.OpenApi.DocPath, http.FS(s))
+	}
 }

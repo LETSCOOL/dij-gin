@@ -48,42 +48,44 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 	port := Ife(config.Port <= 0, DefaultWebServerPort, config.Port)
 	url := fmt.Sprintf("%v:%d/%s", config.Address, port, config.BasePath)
 	// setup web spec record, aka. swagger
-	website := spec.Openapi{
-		Openapi: "3.0.3",
-		Info: &spec.Info{
-			License:        nil,
-			Contact:        nil,
-			Description:    "This site is still under construction.",
-			TermsOfService: "",
-			Title:          "A dij-gin base API",
-			Version:        "0.0.1",
-		},
-		Servers: []spec.Server{
-			{
-				//Url:         "{schemes}://{addr}:{port}/{basePath}",
-				Url: "{schemes}://" + url,
-				//Description: "API",
-				Variables: map[string]spec.ServerVariable{
-					"schemes": {
-						Enum:    config.Schemes,
-						Default: "http",
+	if config.OpenApi.Enabled {
+		website := spec.Openapi{
+			Openapi: "3.0.3",
+			Info: &spec.Info{
+				License:        nil,
+				Contact:        nil,
+				Description:    "This site is still under construction.",
+				TermsOfService: "",
+				Title:          "A dij-gin base API",
+				Version:        "0.0.1",
+			},
+			Servers: []spec.Server{
+				{
+					//Url:         "{schemes}://{addr}:{port}/{basePath}",
+					Url: "{schemes}://" + url,
+					//Description: "API",
+					Variables: map[string]spec.ServerVariable{
+						"schemes": {
+							Enum:    config.OpenApi.Schemes,
+							Default: config.OpenApi.Schemes[0],
+						},
+						//"addr": {
+						//	Default: config.Address,
+						//},
+						//"basePath": {
+						//	Default: config.BasePath,
+						//},
+						//"port": {
+						//	Default: strconv.Itoa(port),
+						//},
 					},
-					//"addr": {
-					//	Default: config.Address,
-					//},
-					//"basePath": {
-					//	Default: config.BasePath,
-					//},
-					//"port": {
-					//	Default: strconv.Itoa(port),
-					//},
 				},
 			},
-		},
-		Tags:  nil,
-		Paths: nil,
+			Tags:  nil,
+			Paths: nil,
+		}
+		ref[WebSpecRecord] = &website
 	}
-	ref[WebSpecRecord] = &website
 	// setup validator
 	v := validator.New()
 	v.SetTagName(config.ValidatorTagName)
@@ -252,8 +254,11 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 // setupRoutesHandlers set routing path for controller
 func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, refPtr dij.DependencyReferencePtr) {
 	basePath := routes.BasePath()
-	siteSpec := (*refPtr)[WebSpecRecord].(*spec.Openapi)
 	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq, refPtr)
+	var openapiSpec *spec.Openapi
+	if _, ok := (*refPtr)[WebSpecRecord]; ok {
+		openapiSpec = (*refPtr)[WebSpecRecord].(*spec.Openapi)
+	}
 	for _, w := range wrappers {
 		// process gin structure
 		var handlers []gin.HandlerFunc
@@ -268,7 +273,12 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		}
 		handlers = append(handlers, w.Handler)
 		routes.Handle(w.UpperReqMethod(), w.ReqPath(), handlers...)
-		// process swagger structure
+
+		// check openapi is enabled
+		if openapiSpec == nil {
+			continue
+		}
+		// process openapi structure
 		fullPath, pathParamNames := w.ConcatOpenapiPath(basePath)
 		method := w.ReqMethod()
 		var parameters spec.ParameterList
@@ -423,6 +433,6 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 			Responses:   responses,
 			Description: w.Spec.Description,
 		}
-		siteSpec.AddPathOperation(fullPath, method, operation)
+		openapiSpec.AddPathOperation(fullPath, method, operation)
 	}
 }
