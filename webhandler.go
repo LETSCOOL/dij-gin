@@ -73,7 +73,8 @@ type HandlerSpec struct {
 	InFields        []BaseParamField
 	MiddlewareNames []string
 	OutFields       []BaseParamField
-	Description     string
+	CtxAttrs        StructTagAttrs // tag attr come from the base field in InFields
+	Description     string         // description comes from the base field in InFields
 }
 
 func (s *HandlerSpec) UpperMethod() string {
@@ -188,6 +189,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose, refPtr 
 	wrappers := make([]HandlerWrapper, 0)
 	instPtrType := reflect.TypeOf(instPtr)
 	handleMethodRegex := purpose.Regexp()
+	rtEnv := ((*refPtr)[WebConfigKey].(*WebConfig)).RtEnv
 	// TODO: how to deal routing for static pages
 	for i := 0; i < instPtrType.NumMethod(); i++ {
 		method := instPtrType.Method(i)
@@ -223,8 +225,13 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose, refPtr 
 						fmt.Printf("[*%v]'s method %d: func %v(%s)\n", instPtrType.Elem().Name(), i, methodName, baseParamType)
 						//fmt.Printf("\t%s\n", baseParamType.Name())
 						analyzeInBaseParam(baseParamType, purpose, &hdlSpec)
+						if envOnly, ok := hdlSpec.CtxAttrs.FirstAttrsWithKey("env"); ok {
+							if !rtEnv.IsInOnlyEnv(envOnly.Val) {
+								continue
+							}
+						}
 
-						validator := (*refPtr)[WebValidator].(*validator.Validate)
+						valid := (*refPtr)[WebValidator].(*validator.Validate)
 
 						wrappers = append(wrappers, HandlerWrapper{
 							hdlSpec,
@@ -276,7 +283,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose, refPtr 
 									}
 								}
 								//fmt.Printf("I'm in")
-								if err := validator.Struct(baseParamInstPtrVal.Interface()); err != nil {
+								if err := valid.Struct(baseParamInstPtrVal.Interface()); err != nil {
 									webErr := ToWebError(err, strconv.Itoa(http.StatusBadRequest))
 									c.JSON(http.StatusBadRequest, webErr)
 								} else {
@@ -347,6 +354,7 @@ func analyzeInBaseParam(baseParamType reflect.Type, purpose HandlerWrapperPurpos
 					}
 				}
 				hdlSpec.Description = doc
+				hdlSpec.CtxAttrs = def.Attrs
 				//if doc != "" {
 				//	log.Printf("I Got doc: %s\n", doc)
 				//}

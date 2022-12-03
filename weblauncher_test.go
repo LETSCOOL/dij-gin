@@ -200,7 +200,7 @@ func TestWebServerExec(t *testing.T) {
 	t.Run("dij", func(t *testing.T) {
 		config := NewWebConfig().
 			SetAddress("localhost").
-			SetRtMode(RtDevMode).
+			SetRtMode(RtDev).
 			SetOpenApi(func(o *OpenApiConfig) {
 				o.SetEnabled(true).UseHttpOnly().SetDocPath("doc")
 			})

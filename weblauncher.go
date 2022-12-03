@@ -121,6 +121,7 @@ func LaunchGin(webServerType reflect.Type, others ...any) error {
 }
 
 func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, refPtr dij.DependencyReferencePtr) error {
+	rtEnv := ((*refPtr)[WebConfigKey].(*WebConfig)).RtEnv
 	predecessor := make([]int, 0)
 	plugins := make([]int, 0)
 	extenders := make([]int, 0)
@@ -186,6 +187,11 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 		field := instType.Field(predecessor[0])
 		if tag, exists := field.Tag.Lookup(HttpTagName); exists {
 			attrs := ParseStructTag(tag)
+			if envOnly, ok := attrs.FirstAttrsWithKey("env"); ok {
+				if !rtEnv.IsInOnlyEnv(envOnly.Val) {
+					return nil
+				}
+			}
 			if attr, existingName := attrs.FirstAttrWithValOnly(); existingName {
 				router = router.Group(attr.Val)
 			} else if attr, exists := attrs.FirstAttrsWithKey("path"); exists {

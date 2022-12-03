@@ -4,27 +4,39 @@
 
 package dij_gin
 
+import (
+	"github.com/letscool/lc-go/lg"
+	"strings"
+)
+
 const (
 	DefaultWebServerPort    = 8000
 	DefaultValidatorTagName = "validate"
 )
 
-type RuntimeMode string
+type RuntimeEnv string
 
 const (
-	RtProdMode    RuntimeMode = "prod"
-	RtDevMode     RuntimeMode = "dev"
-	RtDebugMode   RuntimeMode = "debug"
-	RtTestingMode RuntimeMode = "test"
+	RtProd  RuntimeEnv = "prod"
+	RtDev   RuntimeEnv = "dev"
+	RtDebug RuntimeEnv = "debug"
+	RtTest  RuntimeEnv = "test"
 )
+
+func (r RuntimeEnv) IsInOnlyEnv(onlyEnv string) bool {
+	if onlyEnv = strings.TrimSpace(onlyEnv); len(onlyEnv) == 0 {
+		return true
+	}
+	return lg.Contains(strings.Split(onlyEnv, "&"), string(r))
+}
 
 type WebConfig struct {
 	Address          string // default is empty
 	Port             int    // if not setting, 8000 will be used.
 	MaxConn          int
-	BasePath         string      // Default is empty
-	ValidatorTagName string      // Default is "validate", but go-gin preferred "binding".
-	RtMode           RuntimeMode // Default is "dev"
+	BasePath         string     // Default is empty
+	ValidatorTagName string     // Default is "validate", but go-gin preferred "binding".
+	RtEnv            RuntimeEnv // Default is "dev"
 	OpenApi          OpenApiConfig
 }
 
@@ -46,14 +58,14 @@ func (c *WebConfig) ApplyDefaultValues() {
 	if c.ValidatorTagName == "" {
 		c.ValidatorTagName = DefaultValidatorTagName
 	}
-	if c.RtMode == "" {
-		c.RtMode = RtDevMode
+	if c.RtEnv == "" {
+		c.RtEnv = RtDev
 	}
 	c.OpenApi.ApplyDefaultValues()
 }
 
-func (c *WebConfig) SetRtMode(mode RuntimeMode) *WebConfig {
-	c.RtMode = mode
+func (c *WebConfig) SetRtMode(mode RuntimeEnv) *WebConfig {
+	c.RtEnv = mode
 	return c
 }
 
