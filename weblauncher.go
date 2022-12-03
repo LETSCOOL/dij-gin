@@ -25,7 +25,17 @@ const (
 	WebDijRef          = "webserver.dij.ref"
 )
 
-func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.DependencyReferencePtr, error) {
+func PrepareGin(webServerTypeOrInst any, others ...any) (*gin.Engine, dij.DependencyReferencePtr, error) {
+	var webServerType reflect.Type
+	var webServerInst any
+	if typ, ok := webServerTypeOrInst.(reflect.Type); ok {
+		webServerType = typ
+	} else {
+		webServerInst = webServerTypeOrInst
+		webServerType = reflect.TypeOf(webServerTypeOrInst).Elem()
+	}
+	webServerTypeOrInst = nil
+
 	if !IsTypeOfWebServer(webServerType) {
 		return nil, nil, fmt.Errorf("the type(%v) is not a web server", webServerType)
 	}
@@ -94,22 +104,48 @@ func PrepareGin(webServerType reflect.Type, others ...any) (*gin.Engine, dij.Dep
 	ref[WebDijRef] = &ref
 	// create instance
 	//dij.EnableLog()
-	instPtr, err := dij.CreateInstance(webServerType, &ref, "^")
+	var err error
+	if webServerInst != nil {
+		var inst any
+		inst, err = dij.BuildAnyInstance(webServerInst, &ref, "^")
+		if inst != webServerInst {
+			log.Fatalf("instance is not original instance, it should be a bug.")
+		}
+	} else {
+		webServerInst, err = dij.CreateInstance(webServerType, &ref, "^")
+	}
 	if err != nil {
 		log.Panic(err)
 	}
 
 	router := gin.Default()
 
-	if err := setupRouterHandlers(instPtr, webServerType, router, &ref); err != nil {
+	if err := setupRouterHandlers(webServerInst, webServerType, router, &ref); err != nil {
 		return nil, nil, err
 	}
 
 	return router, &ref, nil
 }
 
-func LaunchGin(webServerType reflect.Type, others ...any) error {
-	engine, refPtr, err := PrepareGin(webServerType, others...)
+// LaunchGin launches a web server.
+// The webServerTypeOrInst should be a struct type which is embedded WebServer or
+// an instance (pointer) of a struct type which is embedded WebServer.
+//
+// A new web server definition:
+//
+//	type WebSer struct {
+//	  WebServer
+//	}
+//
+//	func main() {
+//	  webTyp = reflect.TypeOf(WebSer{})
+//	  LaunchGin(webTyp) // launch by type
+//
+//	  webInst = &WebSer{}
+//	  LaunchGin(webInst) // launch by instance
+//	}
+func LaunchGin(webServerTypeOrInst any, others ...any) error {
+	engine, refPtr, err := PrepareGin(webServerTypeOrInst, others...)
 	if err != nil {
 		return err
 	}

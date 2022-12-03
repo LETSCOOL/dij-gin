@@ -54,6 +54,8 @@ func (s *SwaggerController) SetupRouter(router WebRouter, _ ...any) {
 	if rec, ok := (*(s.ref))[WebSpecRecord]; ok {
 		config := (*(s.ref))[WebConfigKey].(*WebConfig)
 		s.openapiSpec = rec.(*spec.Openapi)
-		router.StaticFS(config.OpenApi.DocPath, http.FS(s))
+		if s.openapiSpec != nil {
+			router.StaticFS(config.OpenApi.DocPath, http.FS(s))
+		}
 	}
 }

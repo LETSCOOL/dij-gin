@@ -205,9 +205,13 @@ func TestWebServerExec(t *testing.T) {
 				o.SetEnabled(true).UseHttpOnly().SetDocPath("doc")
 			})
 		t.Log(config)
-		wsTyp := reflect.TypeOf(TestWebServer{})
 		//dij.EnableLog()
-		if err := LaunchGin(wsTyp, config); err != nil {
+		//wsTyp := reflect.TypeOf(TestWebServer{})
+		//if err := LaunchGin(wsTyp, config); err != nil {
+		//	t.Error(err)
+		//}
+		inst := &TestWebServer{}
+		if err := LaunchGin(inst, config); err != nil {
 			t.Error(err)
 		}
 	})
