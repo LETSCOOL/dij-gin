@@ -137,7 +137,7 @@ func (s *TestWebServer) PostJson(ctx struct {
 }
 
 type TestWebController1 struct {
-	WebController `http:"path=user"`
+	WebController `http:"path=user,tag=User"`
 
 	Ctrl2 *TestWebController2 `di:"^"`
 }

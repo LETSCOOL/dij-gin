@@ -221,12 +221,16 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 		// TODO: base controller has some middlewares installed, and extended controllers also inherited those middlewares, why? fix it ????
 		routers := router.(gin.IRoutes)
 		field := instType.Field(predecessor[0])
+		var apiTag string
 		if tag, exists := field.Tag.Lookup(HttpTagName); exists {
 			attrs := ParseStructTag(tag)
 			if envOnly, ok := attrs.FirstAttrsWithKey("env"); ok {
 				if !rtEnv.IsInOnlyEnv(envOnly.Val) {
 					return nil
 				}
+			}
+			if apiTagAttr, ok := attrs.FirstAttrsWithKey("tag"); ok {
+				apiTag = strings.TrimSpace(apiTagAttr.Val)
 			}
 			if attr, existingName := attrs.FirstAttrWithValOnly(); existingName {
 				router = router.Group(attr.Val)
@@ -249,7 +253,7 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 		}
 		fmt.Printf("Set router for %v\n", instType)
 		if webRoutes, ok := routers.(WebRoutes); ok {
-			setupRoutesHandlers(webRoutes, instPtr, mwHdlWrappers, refPtr)
+			setupRoutesHandlers(webRoutes, instPtr, mwHdlWrappers, refPtr, apiTag)
 			ctrl := instPtr.(WebControllerSpec)
 			ctrl.SetupRouter(router, instPtr)
 		} else {
@@ -294,7 +298,7 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 }
 
 // setupRoutesHandlers set routing path for controller
-func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, refPtr dij.DependencyReferencePtr) {
+func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string]HandlerWrapper, refPtr dij.DependencyReferencePtr, apiTag string) {
 	basePath := routes.BasePath()
 	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq, refPtr)
 	var openapiSpec *spec.Openapi
@@ -340,6 +344,9 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 						formCoding++
 					}
 					reqMime = append(reqMime, mt.Title)
+				}
+				if apiTagAttr, ok := fieldDef.Attrs.FirstAttrsWithKey("tag"); ok {
+					apiTag = strings.TrimSpace(apiTagAttr.Val)
 				}
 				break
 			} else {
@@ -469,11 +476,17 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 			}
 		}
 
+		var tags []string
+		if apiTag = strings.Trim(apiTag, "&"); len(apiTag) > 0 {
+			tags = strings.Split(apiTag, "&")
+		}
+
 		operation := spec.Operation{
 			Parameters:  parameters,
 			RequestBody: reqBody,
 			Responses:   responses,
 			Description: w.Spec.Description,
+			Tags:        tags,
 		}
 		openapiSpec.AddPathOperation(fullPath, method, operation)
 	}
