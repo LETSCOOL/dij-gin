@@ -228,10 +228,10 @@ func TestRegex(t *testing.T) {
 		}
 	})
 	t.Run("response code from field name", func(t *testing.T) {
-		re := regexp.MustCompile(`^((\w*[\D+|^][2-5]\d{2})|default)$`)
+		re := regexp.MustCompile(`^((\w*[\D+|^][2-5]\d{2})|default|([2-5]\d{2}))$`)
 		data := []struct{ data, result string }{
 			{"a2345", ""}, {"a345", "a345"}, {"adefault9", ""},
-			{"default300", "default300"}, {"DeFault", "default"},
+			{"default300", "default300"}, {"DeFault", "default"}, {"200", "200"},
 		}
 		for i, d := range data {
 			v := re.Find([]byte(strings.ToLower(d.data)))

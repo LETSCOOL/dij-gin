@@ -1,6 +1,6 @@
 module github.com/letscool/dij-gin
 
-replace github.com/letscool/lc-go => ../lc-go
+//replace github.com/letscool/lc-go => ../lc-go
 
 go 1.19
 
@@ -8,7 +8,7 @@ require (
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-playground/validator/v10 v10.11.1
-	github.com/letscool/lc-go v0.0.7
+	github.com/letscool/lc-go v0.0.9
 )
 
 require (

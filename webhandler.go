@@ -25,7 +25,7 @@ var TypeOfWebError reflect.Type
 func init() {
 	reqRegex = regexp.MustCompile(`^(get|post|put|patch|delete|head|connect|options|trace)`)
 	middleRegex = regexp.MustCompile(`^(handle)`)
-	codeRegex = regexp.MustCompile(`^((\w*[\D+|^][2-5]\d{2})|default)$`)
+	codeRegex = regexp.MustCompile(`^((\w*[\D+|^][2-5]\d{2})|default|([2-5]\d{2}))$`)
 	TypeOfWebError = reflect.TypeOf(WebError{})
 }
 
@@ -475,7 +475,8 @@ OutputData:
 
 		// text format
 		if text, ok := v.(string); ok {
-			c.String(code, string(format), text)
+			log.Printf("******* %s *********\n", text)
+			c.String(code, text)
 			break OutputData
 		}
 
@@ -489,7 +490,7 @@ OutputData:
 		case spec.UrlEncoded:
 			// TODO: implement marshal struct
 		case spec.PlainText:
-			c.String(code, string(format), fmt.Sprint(v))
+			c.String(code, fmt.Sprint(v))
 			break OutputData
 		case spec.JsonObject:
 			c.JSON(code, v)
@@ -498,7 +499,8 @@ OutputData:
 			c.XML(code, v)
 			break OutputData
 		case spec.HtmlPage:
-			c.String(code, string(format), v)
+			c.Data(code, string(format), []byte(fmt.Sprint(v)))
+			//c.String(code, string(format), v)
 			break OutputData
 		case spec.OctetStream, spec.PngImage, spec.JpegImage:
 			// TODO: implement reader or something?
