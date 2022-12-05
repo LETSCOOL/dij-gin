@@ -390,6 +390,7 @@ _____
 
 Still many function should be implemented, such as:
 - Redirect response
+- Response urlencoded data
 - More middlewares
 - Fix bugs
 - More examples for http tag settings

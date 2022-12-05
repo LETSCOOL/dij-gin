@@ -476,7 +476,7 @@ OutputData:
 		// text format
 		if text, ok := v.(string); ok {
 			log.Printf("******* %s *********\n", text)
-			c.String(code, text)
+			c.Data(code, string(format), []byte(text))
 			break OutputData
 		}
 
@@ -500,7 +500,6 @@ OutputData:
 			break OutputData
 		case spec.HtmlPage:
 			c.Data(code, string(format), []byte(fmt.Sprint(v)))
-			//c.String(code, string(format), v)
 			break OutputData
 		case spec.OctetStream, spec.PngImage, spec.JpegImage:
 			// TODO: implement reader or something?

@@ -31,7 +31,7 @@ func (r RuntimeEnv) IsInOnlyEnv(onlyEnv string) bool {
 }
 
 type WebConfig struct {
-	Address          string // default is empty
+	Address          string // default is localhost
 	Port             int    // if not setting, 8000 will be used.
 	MaxConn          int
 	BasePath         string     // Default is empty
@@ -49,9 +49,9 @@ func NewWebConfig() *WebConfig {
 
 // ApplyDefaultValues if some properties are zero or empty, it will set the default values.
 func (c *WebConfig) ApplyDefaultValues() {
-	//if c.Address == "" {
-	//	c.Address = "localhost"
-	//}
+	if c.Address == "" {
+		c.Address = "localhost"
+	}
 	if c.Port == 0 {
 		c.Port = DefaultWebServerPort
 	}
