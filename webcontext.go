@@ -86,7 +86,7 @@ func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type, inWay 
 	switch inWay {
 	case InHeaderWay:
 		text = c.GetHeader(key)
-		if exists = len(text) > 0; exists {
+		if exists = len(text) > 0; !exists {
 			return nil, false
 		}
 	case InQueryWay:
@@ -95,7 +95,7 @@ func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type, inWay 
 		}
 	case InPathWay:
 		text = c.Param(key)
-		if exists = len(text) > 0; exists {
+		if exists = len(text) > 0; !exists {
 			return nil, false
 		}
 	case InCookieWay:

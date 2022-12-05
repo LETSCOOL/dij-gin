@@ -160,7 +160,7 @@ type User struct {
 
 func (c *TestWebController1) GetUserById(ctx struct {
 	WebContext `http:":id/profile, method=get" description:"取得使用者資訊"`
-	Id         int `http:"id" validate:"gte=100,lte=999"`
+	Id         int `http:"id,in=path" validate:"gte=100,lte=999"`
 }) (result struct {
 	Data *User `http:"200," description:"使用者資訊"`
 }) {
