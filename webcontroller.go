@@ -40,3 +40,7 @@ func (w *WebController) iAmAWebController() {
 func (w *WebController) SetupRouter(_ WebRouter, _ ...any) {
 
 }
+
+func (w *WebController) GetRef(keyOfRef string) (any, bool) {
+	return w._ref.Get(keyOfRef)
+}

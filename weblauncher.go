@@ -70,10 +70,10 @@ func PrepareGin(webServerTypeOrInst any, others ...any) (*gin.Engine, dij.Depend
 			Info: &spec.Info{
 				License:        nil,
 				Contact:        nil,
-				Description:    "This site is still under construction.",
+				Description:    Ife(config.OpenApi.Description == "", "This site is still under construction.", config.OpenApi.Description),
 				TermsOfService: "",
-				Title:          "A dij-gin base API",
-				Version:        "0.0.1",
+				Title:          Ife(config.OpenApi.Title == "", "A dij-gin base API", config.OpenApi.Title),
+				Version:        Ife(config.OpenApi.Version == "", "0.0.1", config.OpenApi.Version),
 			},
 			Servers: []spec.Server{
 				{

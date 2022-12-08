@@ -117,9 +117,12 @@ func (c *WebConfig) SetDefaultWriter(writer io.Writer) *WebConfig {
 }
 
 type OpenApiConfig struct {
-	Enabled bool     // Default is false
-	Schemes []string // ex: "http", "https". Default is "https".
-	DocPath string   // Default is "doc"
+	Enabled     bool // Default is false
+	Title       string
+	Description string
+	Version     string
+	Schemes     []string // ex: "http", "https". Default is "https".
+	DocPath     string   // Default is "doc"
 }
 
 func (o *OpenApiConfig) ApplyDefaultValues() {
@@ -158,5 +161,20 @@ func (o *OpenApiConfig) SetEnabled(en bool) *OpenApiConfig {
 
 func (o *OpenApiConfig) SetDocPath(path string) *OpenApiConfig {
 	o.DocPath = path
+	return o
+}
+
+func (o *OpenApiConfig) SetTitle(title string) *OpenApiConfig {
+	o.Title = title
+	return o
+}
+
+func (o *OpenApiConfig) SetDescription(description string) *OpenApiConfig {
+	o.Description = description
+	return o
+}
+
+func (o *OpenApiConfig) SetVersion(version string) *OpenApiConfig {
+	o.Version = version
 	return o
 }
