@@ -189,7 +189,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose, refPtr 
 	wrappers := make([]HandlerWrapper, 0)
 	instPtrType := reflect.TypeOf(instPtr)
 	handleMethodRegex := purpose.Regexp()
-	rtEnv := ((*refPtr)[WebConfigKey].(*WebConfig)).RtEnv
+	rtEnv := ((*refPtr)[RefKeyForWebConfig].(*WebConfig)).RtEnv
 	// TODO: how to deal routing for static pages
 	for i := 0; i < instPtrType.NumMethod(); i++ {
 		method := instPtrType.Method(i)
@@ -231,7 +231,7 @@ func GenerateHandlerWrappers(instPtr any, purpose HandlerWrapperPurpose, refPtr 
 							}
 						}
 
-						valid := (*refPtr)[WebValidator].(*validator.Validate)
+						valid := (*refPtr)[RefKeyForWebValidator].(*validator.Validate)
 
 						wrappers = append(wrappers, HandlerWrapper{
 							hdlSpec,

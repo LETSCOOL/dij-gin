@@ -12,17 +12,26 @@ __________
 - [dij-gin Style](#dij-gin-style)
   - [Query](#query)
   - [Where variable data came from?](#where-variable-data-came-from)
+  - Customize path name and http method
+  - Body
+    - Form
+    - Json
   - [Validator](#validator)
   - [Response](#response)
+  - [Middlewares](#middlewares)
+    - [Log](#log) 
+    - [Basic Auth](#basic-auth)
+    - [CORS](#cors)
   - [OpenAPI generation](#openapi-generation)
     - tag/group
+  - Runtime environment
 - [Http tag](#http-tag)
 - [TODO List](#todo-list)
 
 
-### Gin Style
+## Gin Style
 ___
-#### Get method
+### Get method
 The *WebContext* embeds *gin.Context*, any gin helper functions can be used directly.
 ```go
 package main
@@ -53,7 +62,7 @@ func main() {
 The function name *GetHello* should combine a method and a path name.
 Method should be one of valid http methods, for examples: **Get**, **Post**, **Delete**, etc.
 
-#### Hierarchy/Controller
+### Hierarchy/Controller
 You can group a few http functions in one controller, 
 which likes what *gin.router.Group* function does.
 
@@ -96,7 +105,7 @@ func main() {
 }
 ```
 
-### dij-gin Style
+## dij-gin Style
 _____
 dij-gin style includes many features:
 - Easy way to retrieve path parameters, query parameters, etc.
@@ -105,7 +114,7 @@ dij-gin style includes many features:
 - Http functions support to enable or disable by runtime environment, aka: prod, dev, and test.
 
 
-#### Query
+### Query
 ```go
 package main
 
@@ -140,7 +149,7 @@ func main() {
 }
 ```
 
-#### Where variable data came from?
+### Where variable data came from?
 
 Add an attribute "in=xxx" in http tag. About http tag setting, see
 the [reference](#http-tag)
@@ -189,7 +198,7 @@ func main() {
 }
 ```
 
-#### Validator
+### Validator
 
 dij-gin uses [go-playground/validator/v10](https://github.com/go-playground/validator) for validation.
 gin uses 'binding' as validation tag key instead of 'validate', 'validate' tag key is chose from go-playground/validator/v10 official.
@@ -234,7 +243,7 @@ func main() {
 }
 ```
 
-#### Response
+### Response
 
 ```go
 package main
@@ -280,7 +289,162 @@ func main() {
 }
 ```
 
-#### OpenAPI generation
+### Middlewares
+
+#### Log
+- Log all http methods for a controller and all it's sub-controllers
+```go
+package main
+
+import (
+  "fmt"
+  "github.com/gin-gonic/gin"
+  . "github.com/letscool/dij-gin"
+  "github.com/letscool/dij-gin/libs"
+  "log"
+  "net/http"
+)
+
+type TWebServer struct {
+  WebServer `http:",middleware=log"`
+
+  _ *libs.LogMiddleware `di:""`
+}
+
+// GetHello a http request with "get" method.
+// Url should like this in local: http://localhost:8000/hello
+func (t *TWebServer) GetHello(ctx WebContext) {
+  ctx.IndentedJSON(http.StatusOK, "/hello")
+}
+
+func main() {
+  //f, _ := os.Create("gin.log") // log to file
+  config := NewWebConfig().
+          //SetDefaultWriter(io.MultiWriter(f)).
+          SetDependentRef(libs.RefKeyForLogFormatter, (gin.LogFormatter)(func(params gin.LogFormatterParams) string {
+            // your custom format
+            return fmt.Sprintf("[%s-%s] \"%s %s\"\n",
+              params.ClientIP,
+              params.TimeStamp.Format("15:04:05.000"),
+              params.Method,
+              params.Path,
+            )
+          }))
+  if err := LaunchGin(&TWebServer{}, config); err != nil {
+    log.Fatalln(err)
+  }
+}
+```
+
+- Log functions only which set *log* middleware
+```go
+package main
+
+import (
+  "fmt"
+  "github.com/gin-gonic/gin"
+  . "github.com/letscool/dij-gin"
+  "github.com/letscool/dij-gin/libs"
+  "log"
+  "net/http"
+)
+
+type TWebServer struct {
+  WebServer `http:""`
+
+  _ *libs.LogMiddleware `di:""`
+}
+
+// GetHelloWithLog a http request with "get" method.
+// Url should like this in local: http://localhost:8000/hello_with_log
+func (t *TWebServer) GetHelloWithLog(ctx struct {
+  WebContext `http:"hello_with_log,middleware=log"`
+}) {
+  ctx.IndentedJSON(http.StatusOK, "hello with log")
+}
+
+// GetHelloWithoutLog a http request with "get" method.
+// Url should like this in local: http://localhost:8000/hello_without_log
+func (t *TWebServer) GetHelloWithoutLog(ctx struct {
+  WebContext `http:"hello_without_log"`
+}) {
+  ctx.IndentedJSON(http.StatusOK, "hello without log")
+}
+
+func main() {
+  //f, _ := os.Create("gin.log") // log to file
+  config := NewWebConfig().
+          //SetDefaultWriter(io.MultiWriter(f)).
+          SetDependentRef(libs.RefKeyForLogFormatter, (gin.LogFormatter)(func(params gin.LogFormatterParams) string {
+            // your custom format
+            return fmt.Sprintf("[%s-%s] \"%s %s\"\n",
+              params.ClientIP,
+              params.TimeStamp.Format("15:04:05.000"),
+              params.Method,
+              params.Path,
+            )
+          }))
+  if err := LaunchGin(&TWebServer{}, config); err != nil {
+    log.Fatalln(err)
+  }
+}
+```
+
+#### Basic Auth
+```go
+package main
+
+import (
+	"crypto/subtle"
+	"encoding/base64"
+	. "github.com/letscool/dij-gin"
+	"github.com/letscool/dij-gin/libs"
+	"log"
+)
+
+type TWebServer struct {
+	WebServer
+
+	_ *TUserController `di:""`
+}
+
+type TUserController struct {
+	WebController `http:"user"`
+
+	_ *libs.BasicAuthMiddleware `di:""`
+}
+
+// GetMe a http request with "get" method.
+// Url should like this in local: http://localhost:8000/user/me
+func (u *TUserController) GetMe(ctx struct {
+	WebContext `http:",middleware=basic_auth"`
+}) (result struct {
+	Account *Account `http:"200,json"`
+}) {
+	result.Account = ctx.MustGet(libs.BasicAuthUserKey).(*Account)
+	return
+}
+
+func main() {
+	ac := &FakeAccountDb{}
+	ac.initFakeDb()
+	config := NewWebConfig().
+		SetDependentRef(libs.RefKeyForBasicAuthAccountCenter, ac)
+	if err := LaunchGin(&TWebServer{}, config); err != nil {
+		log.Fatalln(err)
+	}
+}
+```
+```go
+
+```
+
+
+#### CORS
+(on-going)
+
+
+### OpenAPI generation
 When you use dij-gin style to setup server, dij-gin server will automatically
 generate OpenAPI document if you need.
 
@@ -341,7 +505,7 @@ func main() {
 ```
 
 
-### Http Tag
+## Http Tag
 ______
 
 (on-going)
@@ -385,7 +549,7 @@ The http tag includes an attribute "in=[AttrKey]"
 More examples: [go-examples](https://github.com/LETSCOOL/go-examples)
 
 
-### TODO List
+## TODO List
 _____
 
 Still many function should be implemented, such as:
@@ -394,3 +558,4 @@ Still many function should be implemented, such as:
 - More middlewares
 - Fix bugs
 - More examples for http tag settings
+- Add unit tests

@@ -30,7 +30,7 @@ type WebControllerSpec interface {
 }
 
 type WebController struct {
-	_ref *dij.DependencyReference `di:"webserver.dij.ref"`
+	_ref *dij.DependencyReference `di:"_.webserver.dij.ref"`
 }
 
 func (w *WebController) iAmAWebController() {

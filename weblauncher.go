@@ -17,12 +17,12 @@ import (
 )
 
 const (
-	HttpTagName        = "http"
-	DescriptionTagName = "description"
-	WebConfigKey       = "webserver.config"
-	WebSpecRecord      = "webserver.spec.record"
-	WebValidator       = "webserver.validator"
-	WebDijRef          = "webserver.dij.ref"
+	HttpTagName            = "http"
+	DescriptionTagName     = "description"
+	RefKeyForWebConfig     = "_.webserver.config"
+	RefKeyForWebSpecRecord = "_.webserver.spec.record"
+	RefKeyForWebValidator  = "_.webserver.validator"
+	RefKeyForWebDijRef     = "_.webserver.dij.ref"
 )
 
 func PrepareGin(webServerTypeOrInst any, others ...any) (*gin.Engine, dij.DependencyReferencePtr, error) {
@@ -54,7 +54,13 @@ func PrepareGin(webServerTypeOrInst any, others ...any) (*gin.Engine, dij.Depend
 		}
 	}
 	config.ApplyDefaultValues()
-	ref[WebConfigKey] = config
+	ref[RefKeyForWebConfig] = config
+	gin.DefaultWriter = config.DefaultWriter
+	//
+	for k, v := range config.DependentRefs {
+		ref[k] = v
+	}
+	//
 	port := Ife(config.Port <= 0, DefaultWebServerPort, config.Port)
 	url := fmt.Sprintf("%v:%d/%s", config.Address, port, config.BasePath)
 	// setup web spec record, aka. swagger
@@ -94,22 +100,23 @@ func PrepareGin(webServerTypeOrInst any, others ...any) (*gin.Engine, dij.Depend
 			Tags:  nil,
 			Paths: nil,
 		}
-		ref[WebSpecRecord] = &website
+		ref[RefKeyForWebSpecRecord] = &website
 	}
 	// setup validator
 	v := validator.New()
 	v.SetTagName(config.ValidatorTagName)
-	ref[WebValidator] = v
+	ref[RefKeyForWebValidator] = v
 	// save ref self
-	ref[WebDijRef] = &ref
+	ref[RefKeyForWebDijRef] = &ref
 	// create instance
 	//dij.EnableLog()
 	var err error
 	if webServerInst != nil {
 		var inst any
 		inst, err = dij.BuildAnyInstance(webServerInst, &ref, "^")
-		if inst != webServerInst {
-			log.Fatalf("instance is not original instance, it should be a bug.")
+		if err == nil && inst != webServerInst {
+			log.Fatalf("instance is not original instance, it should be a bug.\n%p != %p\n%v",
+				inst, webServerInst, err)
 		}
 	} else {
 		webServerInst, err = dij.CreateInstance(webServerType, &ref, "^")
@@ -149,7 +156,7 @@ func LaunchGin(webServerTypeOrInst any, others ...any) error {
 	if err != nil {
 		return err
 	}
-	v, _ := refPtr.Get(WebConfigKey)
+	v, _ := refPtr.Get(RefKeyForWebConfig)
 	config := v.(*WebConfig)
 
 	addr := fmt.Sprintf("%v:%d", config.Address, Ife(config.Port <= 0, DefaultWebServerPort, config.Port))
@@ -157,7 +164,7 @@ func LaunchGin(webServerTypeOrInst any, others ...any) error {
 }
 
 func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, refPtr dij.DependencyReferencePtr) error {
-	rtEnv := ((*refPtr)[WebConfigKey].(*WebConfig)).RtEnv
+	rtEnv := ((*refPtr)[RefKeyForWebConfig].(*WebConfig)).RtEnv
 	predecessor := make([]int, 0)
 	plugins := make([]int, 0)
 	extenders := make([]int, 0)
@@ -302,8 +309,8 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 	basePath := routes.BasePath()
 	wrappers := GenerateHandlerWrappers(instPtr, HandlerForReq, refPtr)
 	var openapiSpec *spec.Openapi
-	if _, ok := (*refPtr)[WebSpecRecord]; ok {
-		openapiSpec = (*refPtr)[WebSpecRecord].(*spec.Openapi)
+	if _, ok := (*refPtr)[RefKeyForWebSpecRecord]; ok {
+		openapiSpec = (*refPtr)[RefKeyForWebSpecRecord].(*spec.Openapi)
 	}
 	for _, w := range wrappers {
 		// process gin structure

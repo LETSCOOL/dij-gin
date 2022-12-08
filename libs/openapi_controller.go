@@ -20,15 +20,12 @@ import (
 //go:embed swagger-ui-dist/4.15.5/*
 var content embed.FS
 
-///go:embed swagger_example.json
-//var swaggerJson string
-
 // SwaggerController embeds a Swagger/OpenAPI entry.
 // Swagger file validator: https://github.com/swagger-api/validator-badge
 type SwaggerController struct {
 	WebController `http:""`
 
-	ref         *dij.DependencyReference `di:"webserver.dij.ref"`
+	ref         *dij.DependencyReference `di:"_.webserver.dij.ref"`
 	openapiSpec *spec.Openapi
 }
 
@@ -51,8 +48,8 @@ func (s *SwaggerController) Open(name string) (fs.File, error) {
 }
 
 func (s *SwaggerController) SetupRouter(router WebRouter, _ ...any) {
-	if rec, ok := (*(s.ref))[WebSpecRecord]; ok {
-		config := (*(s.ref))[WebConfigKey].(*WebConfig)
+	if rec, ok := (*(s.ref))[RefKeyForWebSpecRecord]; ok {
+		config := (*(s.ref))[RefKeyForWebConfig].(*WebConfig)
 		s.openapiSpec = rec.(*spec.Openapi)
 		if s.openapiSpec != nil {
 			router.StaticFS(config.OpenApi.DocPath, http.FS(s))

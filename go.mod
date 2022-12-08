@@ -8,7 +8,7 @@ require (
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-playground/validator/v10 v10.11.1
-	github.com/letscool/lc-go v0.0.9
+	github.com/letscool/lc-go v0.1.0
 )
 
 require (

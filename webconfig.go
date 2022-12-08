@@ -6,6 +6,8 @@ package dij_gin
 
 import (
 	"github.com/letscool/lc-go/lg"
+	"io"
+	"os"
 	"strings"
 )
 
@@ -34,10 +36,12 @@ type WebConfig struct {
 	Address          string // default is localhost
 	Port             int    // if not setting, 8000 will be used.
 	MaxConn          int
-	BasePath         string     // Default is empty
-	ValidatorTagName string     // Default is "validate", but go-gin preferred "binding".
+	BasePath         string // Default is empty
+	ValidatorTagName string // Default is "validate", but go-gin preferred "binding".
+	DependentRefs    map[string]any
 	RtEnv            RuntimeEnv // Default is "dev"
 	OpenApi          OpenApiConfig
+	DefaultWriter    io.Writer
 }
 
 // NewWebConfig returns an instance with default values.
@@ -60,6 +64,12 @@ func (c *WebConfig) ApplyDefaultValues() {
 	}
 	if c.RtEnv == "" {
 		c.RtEnv = RtDev
+	}
+	if c.DependentRefs == nil {
+		c.DependentRefs = map[string]any{}
+	}
+	if c.DefaultWriter == nil {
+		c.DefaultWriter = os.Stdout
 	}
 	c.OpenApi.ApplyDefaultValues()
 }
@@ -86,6 +96,23 @@ func (c *WebConfig) SetBasePath(path string) *WebConfig {
 
 func (c *WebConfig) SetOpenApi(f func(o *OpenApiConfig)) *WebConfig {
 	f(&c.OpenApi)
+	return c
+}
+
+func (c *WebConfig) SetDependentRef(key string, ref any) *WebConfig {
+	if c.DependentRefs == nil {
+		c.DependentRefs = map[string]any{}
+	}
+	c.DependentRefs[key] = ref
+	return c
+}
+
+//func (c *WebConfig) SetLogFormatter(formatter gin.LogFormatter) *WebConfig {
+//	return c.SetDependentRef("_.mdl.log.formatter", formatter)
+//}
+
+func (c *WebConfig) SetDefaultWriter(writer io.Writer) *WebConfig {
+	c.DefaultWriter = writer
 	return c
 }
 

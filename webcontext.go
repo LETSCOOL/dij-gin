@@ -45,6 +45,8 @@ func IsCorrectInWay(way InWay) bool {
 
 type WebContextSpec interface {
 	iAmAWebContext()
+
+	GetRequestHeader(key string) string
 }
 
 type WebContext struct {
@@ -134,6 +136,10 @@ func (c *WebContext) GetRequestValueForType(key string, typ reflect.Type, inWay 
 		}
 		return instPtrVal.Elem().Interface(), true
 	}
+}
+
+func (c *WebContext) GetRequestHeader(key string) string {
+	return c.Request.Header.Get(key)
 }
 
 var WebCtxType reflect.Type

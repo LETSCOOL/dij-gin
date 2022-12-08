@@ -12,15 +12,14 @@ type CorsMiddleware struct {
 	corsHandle gin.HandlerFunc
 }
 
+func (m *CorsMiddleware) DidDependencyInitialization() {
+	// cors
+	// ref: https://github.com/gin-contrib/cors
+	m.corsHandle = cors.Default()
+}
+
 func (m *CorsMiddleware) HandleCors(ctx struct {
 	WebContext `http:""`
 }) {
-	// cors
-	// ref: https://github.com/gin-contrib/cors
-	// TODO: refine middleware architecture?
-	//router.Use(cors.Default())
-	if m.corsHandle == nil {
-		m.corsHandle = cors.Default()
-	}
 	m.corsHandle(ctx.Context)
 }
