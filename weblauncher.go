@@ -325,7 +325,25 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 			}
 		}
 		handlers = append(handlers, w.Handler)
-		routes.Handle(w.UpperReqMethod(), w.ReqPath(), handlers...)
+		method := w.ReqMethod()
+		if strings.HasPrefix(method, "no") {
+			//log.Printf("***** Routes type: %v, %v, isEngine: %v, path=%s", reflect.TypeOf(routes), reflect.TypeOf(routes).Elem(), isEngine, routes.BasePath())
+			if engine, isEngine := routes.(*gin.Engine); isEngine {
+				if method == "noroute" {
+					engine.NoRoute(handlers...)
+				} else if method == "nomethod" {
+					engine.NoMethod(handlers...)
+				} else {
+					log.Printf("unsupported no %s, what is this?\n", method[2:])
+				}
+			} else {
+				log.Printf("warning!! no %s is only supported in root path, current is '%s'\n", method[2:], basePath)
+			}
+			// not support openapi yet
+			continue
+		} else {
+			routes.Handle(w.UpperReqMethod(), w.ReqPath(), handlers...)
+		}
 
 		// check openapi is enabled
 		if openapiSpec == nil {
@@ -333,7 +351,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		}
 		// process openapi structure
 		fullPath, pathParamNames := w.ConcatOpenapiPath(basePath)
-		method := w.ReqMethod()
+
 		var parameters spec.ParameterList
 		var bodySchemas []spec.SchemaR
 		var reqBody *spec.RequestBodyR

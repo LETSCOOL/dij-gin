@@ -9,6 +9,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	. "github.com/letscool/dij-gin"
 	"github.com/letscool/dij-gin/libs"
+	"log"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -122,6 +123,13 @@ func (s *TestWebServer) GetHello(ctx struct {
 	ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("/hello %f", ctx.a))
 }
 
+func (s *TestWebServer) NoRoute(ctx struct {
+	WebContext
+}) {
+	log.Printf("I am no route: %s\n", ctx.Request.RequestURI)
+	//ctx.IndentedJSON(http.StatusOK, "nothing")
+}
+
 // PostJson shows post request with json style
 // curl: curl -X POST http://localhost:8000/json -H 'Content-Type: application/json' -d '{"a":123,"b":"data+b"}'
 func (s *TestWebServer) PostJson(ctx struct {
@@ -151,6 +159,10 @@ func (c *TestWebController1) GetUserMe(ctx struct {
 	ctx.IndentedJSON(http.StatusOK, "/user")
 
 	return
+}
+
+func (c *TestWebController1) NoMethod(ctx WebContext) {
+	log.Printf("I am no method: %s\n", ctx.FullPath())
 }
 
 type User struct {

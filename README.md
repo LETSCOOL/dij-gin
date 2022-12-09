@@ -12,7 +12,8 @@ __________
 - [dij-gin Style](#dij-gin-style)
   - [Query](#query)
   - [Where variable data came from?](#where-variable-data-came-from)
-  - Customize path name and http method
+  - [Customize path name and http method](#customize-path-name-and-http-method)
+    - [No route](#no-route)
   - Body
     - Form
     - Json
@@ -189,6 +190,64 @@ func (u *TUserController) PutUserById(ctx struct {
 	Age        int    `http:"age,in=body"`
 }) {
 	ctx.IndentedJSON(http.StatusOK, fmt.Sprintf("update user(#%d)'s name %s and age %d", ctx.Id, ctx.Name, ctx.Age))
+}
+
+func main() {
+	if err := LaunchGin(&TWebServer{}); err != nil {
+		log.Fatalln(err)
+	}
+}
+```
+
+### Customize path name and http method
+
+Add http tag with the format "[path],method=[method]".
+
+```go
+package main
+
+import (
+	. "github.com/letscool/dij-gin"
+	"log"
+	"net/http"
+)
+
+type TWebServer struct {
+	WebServer
+}
+
+// SayHi a http request with "get" method.
+// Url should like this in local: http://localhost:8000/hello.
+func (s *TWebServer) SayHi(ctx struct {
+	WebContext `http:"hello,method=get"`
+}) {
+	ctx.IndentedJSON(http.StatusOK, "hello")
+}
+
+func main() {
+	if err := LaunchGin(&TWebServer{}); err != nil {
+		log.Fatalln(err)
+	}
+}
+```
+
+#### No Route
+```go
+package main
+
+import (
+	. "github.com/letscool/dij-gin"
+	"log"
+)
+
+type TWebServer struct {
+	WebServer
+}
+
+// NoRoute is entry for page not found, is only supported in root path currently.
+// Any query will show the log.
+func (s *TWebServer) NoRoute(ctx WebContext) {
+	log.Printf("no route: %s\n", ctx.Request.RequestURI)
 }
 
 func main() {

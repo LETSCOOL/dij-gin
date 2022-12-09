@@ -23,7 +23,7 @@ var reqRegex, middleRegex, codeRegex *regexp.Regexp
 var TypeOfWebError reflect.Type
 
 func init() {
-	reqRegex = regexp.MustCompile(`^(get|post|put|patch|delete|head|connect|options|trace)`)
+	reqRegex = regexp.MustCompile(`^(get|post|put|patch|delete|head|connect|options|trace|noroute|nomethod)`)
 	middleRegex = regexp.MustCompile(`^(handle)`)
 	codeRegex = regexp.MustCompile(`^((\w*[\D+|^][2-5]\d{2})|default|([2-5]\d{2}))$`)
 	TypeOfWebError = reflect.TypeOf(WebError{})
