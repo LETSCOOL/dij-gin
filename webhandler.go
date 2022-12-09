@@ -473,6 +473,12 @@ OutputData:
 			v = fieldValue.Elem().Interface()
 		}
 
+		// redirect
+		if code/100 == 3 {
+			c.Redirect(code, fmt.Sprint(v))
+			break OutputData
+		}
+
 		// text format
 		if text, ok := v.(string); ok {
 			log.Printf("******* %s *********\n", text)
