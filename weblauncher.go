@@ -239,10 +239,8 @@ func setupRouterHandlers(instPtr any, instType reflect.Type, router WebRouter, r
 			if apiTagAttr, ok := attrs.FirstAttrsWithKey("tag"); ok {
 				apiTag = strings.TrimSpace(apiTagAttr.Val)
 			}
-			if attr, existingName := attrs.FirstAttrWithValOnly(); existingName {
-				router = router.Group(attr.Val)
-			} else if attr, exists := attrs.FirstAttrsWithKey("path"); exists {
-				router = router.Group(attr.Val)
+			if path, existsPath := attrs.PreferredName("path", true); existsPath && len(path) > 0 {
+				router = router.Group(path)
 			}
 			routers = router.(gin.IRoutes)
 			if attr, exists := attrs.FirstAttrsWithKey("middleware"); exists {
