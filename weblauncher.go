@@ -61,8 +61,7 @@ func PrepareGin(webServerTypeOrInst any, others ...any) (*gin.Engine, dij.Depend
 		ref[k] = v
 	}
 	//
-	port := Ife(config.Port <= 0, DefaultWebServerPort, config.Port)
-	url := fmt.Sprintf("%v:%d/%s", config.Address, port, config.BasePath)
+	openApiUrl := fmt.Sprintf("%v:%d/%s", config.OpenApi.Address, config.OpenApi.Port, config.BasePath)
 	// setup web spec record, aka. swagger
 	if config.OpenApi.Enabled {
 		website := spec.Openapi{
@@ -78,7 +77,7 @@ func PrepareGin(webServerTypeOrInst any, others ...any) (*gin.Engine, dij.Depend
 			Servers: []spec.Server{
 				{
 					//Url:         "{schemes}://{addr}:{port}/{basePath}",
-					Url: "{schemes}://" + url,
+					Url: "{schemes}://" + openApiUrl,
 					//Description: "API",
 					Variables: map[string]spec.ServerVariable{
 						"schemes": {

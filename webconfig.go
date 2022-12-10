@@ -56,7 +56,7 @@ func (c *WebConfig) ApplyDefaultValues() {
 	if c.Address == "" {
 		c.Address = "localhost"
 	}
-	if c.Port == 0 {
+	if c.Port <= 0 {
 		c.Port = DefaultWebServerPort
 	}
 	if c.ValidatorTagName == "" {
@@ -72,6 +72,12 @@ func (c *WebConfig) ApplyDefaultValues() {
 		c.DefaultWriter = os.Stdout
 	}
 	c.OpenApi.ApplyDefaultValues()
+	if c.OpenApi.Address == "" {
+		c.OpenApi.Address = c.Address
+	}
+	if c.OpenApi.Port <= 0 {
+		c.OpenApi.Port = c.Port
+	}
 }
 
 func (c *WebConfig) SetRtMode(mode RuntimeEnv) *WebConfig {
@@ -122,7 +128,9 @@ type OpenApiConfig struct {
 	Description string
 	Version     string
 	Schemes     []string // ex: "http", "https". Default is "https".
-	DocPath     string   // Default is "doc"
+	Address     string
+	Port        int
+	DocPath     string // Default is "doc"
 }
 
 func (o *OpenApiConfig) ApplyDefaultValues() {
@@ -176,5 +184,15 @@ func (o *OpenApiConfig) SetDescription(description string) *OpenApiConfig {
 
 func (o *OpenApiConfig) SetVersion(version string) *OpenApiConfig {
 	o.Version = version
+	return o
+}
+
+func (o *OpenApiConfig) SetAddress(addr string) *OpenApiConfig {
+	o.Address = addr
+	return o
+}
+
+func (o *OpenApiConfig) SetPort(port int) *OpenApiConfig {
+	o.Port = port
 	return o
 }
