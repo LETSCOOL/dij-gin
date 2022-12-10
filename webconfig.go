@@ -53,9 +53,9 @@ func NewWebConfig() *WebConfig {
 
 // ApplyDefaultValues if some properties are zero or empty, it will set the default values.
 func (c *WebConfig) ApplyDefaultValues() {
-	if c.Address == "" {
-		c.Address = "localhost"
-	}
+	//if c.Address == "" {
+	//	c.Address = "localhost"
+	//}
 	if c.Port <= 0 {
 		c.Port = DefaultWebServerPort
 	}
