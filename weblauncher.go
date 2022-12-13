@@ -19,6 +19,7 @@ import (
 const (
 	HttpTagName            = "http"
 	DescriptionTagName     = "description"
+	SecurityTagName        = "security"
 	RefKeyForWebConfig     = "_.webserver.config"
 	RefKeyForWebSpecRecord = "_.webserver.spec.record"
 	RefKeyForWebValidator  = "_.webserver.validator"
@@ -98,6 +99,9 @@ func PrepareGin(webServerTypeOrInst any, others ...any) (*gin.Engine, dij.Depend
 			},
 			Tags:  nil,
 			Paths: nil,
+			Components: &spec.Components{
+				SecuritySchemes: config.OpenApi.SecuritySchemes,
+			},
 		}
 		ref[RefKeyForWebSpecRecord] = &website
 	}
@@ -498,9 +502,26 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 			}
 		}
 
+		// openapi tag/group
 		var tags []string
 		if apiTag = strings.Trim(apiTag, "&"); len(apiTag) > 0 {
 			tags = strings.Split(apiTag, "&")
+		}
+
+		// https://swagger.io/docs/specification/authentication/
+
+		var securityRequirement []spec.SecurityRequirement
+		if len(w.Spec.Security) > 0 {
+			attrs := ParseStructTag(w.Spec.Security)
+			//
+			if name, ok := attrs.PreferredName("name", true); ok {
+				props := Map(attrs.AttrsWithValOnly(), func(v StructTagAttr) string {
+					return v.Val
+				})
+				req := spec.SecurityRequirement{}
+				req[name] = props
+				securityRequirement = append(securityRequirement, req)
+			}
 		}
 
 		operation := spec.Operation{
@@ -509,6 +530,7 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 			Responses:   responses,
 			Description: w.Spec.Description,
 			Tags:        tags,
+			Security:    securityRequirement,
 		}
 		openapiSpec.AddPathOperation(fullPath, method, operation)
 	}

@@ -5,6 +5,11 @@
 package spec
 
 type SecurityScheme struct {
+	Type             string `json:"type"`
+	Scheme           string `json:"scheme,omitempty"`
+	In               InWay  `json:"in,omitempty"`
+	Name             string `json:"name,omitempty"`
+	OpenIdConnectUrl string `json:"openIdConnectUrl,omitempty"`
 }
 
 type SecuritySchemes map[string]SecuritySchemeR
@@ -13,4 +18,40 @@ type SecuritySchemes map[string]SecuritySchemeR
 type SecuritySchemeR struct {
 	*SecurityScheme `json:""`
 	Ref             string `json:"$ref,omitempty"`
+}
+
+func (s *SecuritySchemes) AppendScheme(name string, scheme SecurityScheme) *SecuritySchemes {
+	(*s)[name] = SecuritySchemeR{
+		SecurityScheme: &scheme,
+	}
+	return s
+}
+
+func (s *SecuritySchemes) AppendBasicAuth(name string) *SecuritySchemes {
+	return s.AppendScheme(name, SecurityScheme{
+		Type:   "http",
+		Scheme: "basic",
+	})
+}
+
+func (s *SecuritySchemes) AppendBearerAuth(name string) *SecuritySchemes {
+	return s.AppendScheme(name, SecurityScheme{
+		Type:   "http",
+		Scheme: "bearer",
+	})
+}
+
+func (s *SecuritySchemes) AppendApiKeyAuth(name string, paramIn InWay, paramName string) *SecuritySchemes {
+	return s.AppendScheme(name, SecurityScheme{
+		Type: "apiKey",
+		In:   paramIn,
+		Name: paramName,
+	})
+}
+
+func (s *SecuritySchemes) AppendOpenId(name string, openIdConnectUrl string) *SecuritySchemes {
+	return s.AppendScheme(name, SecurityScheme{
+		Type:             "openIdConnect",
+		OpenIdConnectUrl: openIdConnectUrl,
+	})
 }

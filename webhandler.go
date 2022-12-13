@@ -75,6 +75,7 @@ type HandlerSpec struct {
 	OutFields       []BaseParamField
 	CtxAttrs        StructTagAttrs // tag attr come from the base field in InFields
 	Description     string         // description comes from the base field in InFields
+	Security        string         // security comes from the tag of base field
 }
 
 func (s *HandlerSpec) UpperMethod() string {
@@ -355,6 +356,7 @@ func analyzeInBaseParam(baseParamType reflect.Type, purpose HandlerWrapperPurpos
 				}
 				hdlSpec.Description = doc
 				hdlSpec.CtxAttrs = def.Attrs
+				hdlSpec.Security = field.Tag.Get(SecurityTagName)
 				//if doc != "" {
 				//	log.Printf("I Got doc: %s\n", doc)
 				//}

@@ -8,6 +8,16 @@ import (
 	"reflect"
 )
 
+type InWay = string
+
+const (
+	InHeaderWay InWay = "header" // one kind of way for parameter
+	InCookieWay InWay = "cookie" // one kind of way for parameter
+	InQueryWay  InWay = "query"  // one kind of way for parameter
+	InPathWay   InWay = "path"   // one kind of way for parameter
+	InBodyWay   InWay = "body"   // one kind of way for request body
+)
+
 // Parameter Describes a single operation parameter.
 //
 // A unique parameter is defined by a combination of a name and location.
@@ -114,7 +124,7 @@ type Parameter struct {
 	Name string `json:"name"` // ex. "body"
 
 	// REQUIRED. The location of the parameter. Possible values are "query", "header", "path" or "cookie".
-	In string `json:"in"` // ex. "body"
+	In InWay `json:"in"` // ex. "body"
 
 	// A brief description of the parameter. This could contain examples of use. CommonMark syntax MAY be used for rich text representation.
 	Description string `json:"description,omitempty"`

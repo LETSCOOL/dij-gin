@@ -5,6 +5,7 @@
 package dij_gin
 
 import (
+	"github.com/letscool/dij-gin/spec"
 	"github.com/letscool/lc-go/lg"
 	"io"
 	"os"
@@ -73,7 +74,7 @@ func (c *WebConfig) ApplyDefaultValues() {
 	}
 	c.OpenApi.ApplyDefaultValues()
 	if c.OpenApi.Address == "" {
-		c.OpenApi.Address = c.Address
+		c.OpenApi.Address = lg.Ife(c.Address == "", "localhost", c.Address)
 	}
 	if c.OpenApi.Port <= 0 {
 		c.OpenApi.Port = c.Port
@@ -123,14 +124,15 @@ func (c *WebConfig) SetDefaultWriter(writer io.Writer) *WebConfig {
 }
 
 type OpenApiConfig struct {
-	Enabled     bool // Default is false
-	Title       string
-	Description string
-	Version     string
-	Schemes     []string // ex: "http", "https". Default is "https".
-	Address     string
-	Port        int
-	DocPath     string // Default is "doc"
+	Enabled         bool // Default is false
+	Title           string
+	Description     string
+	Version         string
+	Schemes         []string // ex: "http", "https". Default is "https".
+	Address         string
+	Port            int
+	DocPath         string // Default is "doc"
+	SecuritySchemes spec.SecuritySchemes
 }
 
 func (o *OpenApiConfig) ApplyDefaultValues() {
@@ -195,4 +197,36 @@ func (o *OpenApiConfig) SetAddress(addr string) *OpenApiConfig {
 func (o *OpenApiConfig) SetPort(port int) *OpenApiConfig {
 	o.Port = port
 	return o
+}
+
+func (o *OpenApiConfig) AppendSecurityScheme(name string, scheme spec.SecurityScheme) *OpenApiConfig {
+	if o.SecuritySchemes == nil {
+		o.SecuritySchemes = spec.SecuritySchemes{}
+	}
+	o.SecuritySchemes[name] = spec.SecuritySchemeR{
+		SecurityScheme: &scheme,
+	}
+	return o
+}
+
+func (o *OpenApiConfig) AppendBasicAuth(name string) *OpenApiConfig {
+	return o.AppendSecurityScheme(name, spec.SecurityScheme{
+		Type:   "http",
+		Scheme: "basic",
+	})
+}
+
+func (o *OpenApiConfig) AppendBearerAuth(name string) *OpenApiConfig {
+	return o.AppendSecurityScheme(name, spec.SecurityScheme{
+		Type:   "http",
+		Scheme: "bearer",
+	})
+}
+
+func (o *OpenApiConfig) AppendApiKeyAuth(name string, paramIn InWay, paramName string) *OpenApiConfig {
+	return o.AppendSecurityScheme(name, spec.SecurityScheme{
+		Type: "apiKey",
+		In:   paramIn,
+		Name: paramName,
+	})
 }
