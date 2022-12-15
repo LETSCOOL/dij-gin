@@ -4,6 +4,10 @@ A dij-style gin library. [gin](https://github.com/gin-gonic/gin) is one of
 most popular web frameworks for golang. [dij](https://github.com/LETSCOOL/lc-go)
 stands for dependency injection. This library provides a dij-style gin wrapper.
 
+
+Refer to completed examples in [go-examples](https://github.com/LETSCOOL/go-examples).
+
+
 ## Contents
 __________
 - [Gin Style](#gin-style)
@@ -22,6 +26,7 @@ __________
   - [Middlewares](#middlewares)
     - [Log](#log) 
     - [Basic Auth](#basic-auth)
+    - [Bearer](#bearer)
     - [CORS](#cors)
   - [OpenAPI generation](#openapi-generation)
     - tag/group
@@ -455,95 +460,130 @@ func main() {
 
 #### Basic Auth
 
+This sample also enables OpenAPI document.
+
 ```go
 package main
 
 import (
-  "crypto/subtle"
-  "encoding/base64"
   . "github.com/letscool/dij-gin"
   "github.com/letscool/dij-gin/libs"
+  "github.com/letscool/go-examples/dij-gin/shared"
   "log"
 )
 
 type TWebServer struct {
   WebServer
-
-  _ *TUserController `di:""`
+  _ *libs.SwaggerController `di:""` // Bind OpenApi controller in root.
+  _ *TUserController        `di:""`
 }
 
 type TUserController struct {
   WebController `http:"user"`
 
-  _ *libs.BasicAuthMiddleware `di:""`
+  _ *shared.BasicAuthMiddleware `di:""`
 }
 
 // GetMe a http request with "get" method.
-// Url should like this in local: http://localhost:8000/user/me
+// Url should like this in local: http://localhost:8000/user/me.
+// And login with username "john" and password "abc".
 func (u *TUserController) GetMe(ctx struct {
-  WebContext `http:",middleware=basic_auth"`
+  WebContext `http:",middleware=basic_auth" security:"basic_auth_1"`
 }) (result struct {
-  Account *Account `http:"200,json"`
+  Account *shared.Account `http:"200,json"`
 }) {
-  result.Account = ctx.MustGet(libs.BasicAuthUserKey).(*Account)
+  result.Account = ctx.MustGet(shared.BasicAuthUserKey).(*shared.Account)
   return
 }
 
 func main() {
-  ac := &FakeAccountDb{}
-  ac.initFakeDb()
+  ac := &shared.FakeAccountDb{} // This object should implement shared.BasicAuthAccountCenter interface.
+  ac.InitFakeDb()
   config := NewWebConfig().
-    SetDependentRef(libs.RefKeyForBasicAuthAccountCenter, ac)
+    SetDependentRef(shared.RefKeyForBasicAuthAccountCenter, ac).
+          SetOpenApi(func(o *OpenApiConfig) {
+            o.Enable().UseHttpOnly().SetDocPath("doc").
+              AppendBasicAuth("basic_auth_1")
+          })
   if err := LaunchGin(&TWebServer{}, config); err != nil {
     log.Fatalln(err)
   }
 }
 ```
 
-Account Db information
+#### Bearer
+
+This sample also enables OpenAPI document.
+
 ```go
-type Account struct {
-	User  string `json:"user"`
-	Email string `json:"email"`
-	pass  string
-	realm string
+package main
+
+import (
+	"fmt"
+	"github.com/golang-jwt/jwt/v4"
+	. "github.com/letscool/dij-gin"
+	"github.com/letscool/dij-gin/libs"
+	"github.com/letscool/go-examples/dij-gin/shared"
+	"log"
+	"time"
+)
+
+type TWebServer struct {
+	WebServer
+	_ *libs.SwaggerController `di:""` // Bind OpenApi controller in root.
+	_ *TUserController        `di:""`
 }
 
-// FakeAccountDb should implement libs.AccountForBasicAuth interface
-type FakeAccountDb struct {
-	accounts []Account
-	creds    map[string]*Account
+type TUserController struct {
+	WebController `http:"user"`
+
+	_ *shared.BearerMiddleware `di:""`
 }
 
-func (a *FakeAccountDb) initFakeDb() {
-	a.accounts = []Account{
-		{"john", "john@fake.com", "abc", ""},
-		{"wayne", "wayne@fake.com", "abc", ""},
+// GetMe a http request with "get" method.
+// Url should like this in local: http://localhost:8000/user/me.
+// And login with username "john" and password "abc".
+func (u *TUserController) GetMe(ctx struct {
+	WebContext `http:",middleware=bearer" security:"bearer_1"`
+}) (result struct {
+	Account *shared.Account `http:"200,json"`
+}) {
+	result.Account = ctx.MustGet(shared.BearerUserKey).(*shared.Account)
+	return
+}
+
+func main() {
+	ac := &shared.FakeAccountDb{} // This object must implement shared.BearerValidator interface.
+	accounts := ac.InitFakeDb()
+	// generate a jwt token for test
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Issuer:    "dij-gin-samples",
+		ID:        accounts[0].User,
+	})
+	// Sign and get the complete encoded token as a string using the secret
+	tokenString, err := token.SignedString([]byte(ac.BearerSecret()))
+	if err != nil {
+		log.Panicln(err)
+	} else {
+		fmt.Println("*************************")
+		fmt.Printf("User: %s\n", accounts[0].User)
+		fmt.Printf("Bearer token: %s\n", tokenString)
+		fmt.Println("*************************")
 	}
-
-	a.creds = map[string]*Account{}
-	for i := range a.accounts {
-		account := &a.accounts[i]
-		base := account.User + ":" + account.pass
-		cred := "Basic " + base64.StdEncoding.EncodeToString([]byte(base))
-		a.creds[cred] = account
+	//
+	config := NewWebConfig().
+		SetDependentRef(shared.RefKeyForBearerValidator, ac).
+		SetOpenApi(func(o *OpenApiConfig) {
+			o.Enable().UseHttpOnly().SetDocPath("doc").
+				AppendBearerAuth("bearer_1")
+		})
+	if err := LaunchGin(&TWebServer{}, config); err != nil {
+		log.Fatalln(err)
 	}
-}
-
-func (a *FakeAccountDb) GetRealm() string {
-	return "Authorization Required"
-}
-
-func (a *FakeAccountDb) SearchCredential(credential string) (account any, found bool) {
-	for key, value := range a.creds {
-		if subtle.ConstantTimeCompare([]byte(key), []byte(credential)) == 1 {
-			return value, true
-		}
-	}
-	return nil, false
 }
 ```
-
 
 #### CORS
 (on-going)
@@ -650,8 +690,6 @@ The http tag includes an attribute "in=[AttrKey]"
 |  path   | If variable name is included in path |         |
 |  query  |                                      |         |
 |  body   |                                      |         |
-
-More examples: [go-examples](https://github.com/LETSCOOL/go-examples)
 
 
 ## TODO List
