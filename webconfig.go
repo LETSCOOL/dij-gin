@@ -203,30 +203,30 @@ func (o *OpenApiConfig) AppendSecurityScheme(name string, scheme spec.SecuritySc
 	if o.SecuritySchemes == nil {
 		o.SecuritySchemes = spec.SecuritySchemes{}
 	}
-	o.SecuritySchemes[name] = spec.SecuritySchemeR{
-		SecurityScheme: &scheme,
-	}
+	o.SecuritySchemes.AppendScheme(name, scheme)
 	return o
 }
 
 func (o *OpenApiConfig) AppendBasicAuth(name string) *OpenApiConfig {
-	return o.AppendSecurityScheme(name, spec.SecurityScheme{
-		Type:   "http",
-		Scheme: "basic",
-	})
+	if o.SecuritySchemes == nil {
+		o.SecuritySchemes = spec.SecuritySchemes{}
+	}
+	o.SecuritySchemes.AppendBasicAuth(name)
+	return o
 }
 
 func (o *OpenApiConfig) AppendBearerAuth(name string) *OpenApiConfig {
-	return o.AppendSecurityScheme(name, spec.SecurityScheme{
-		Type:   "http",
-		Scheme: "bearer",
-	})
+	if o.SecuritySchemes == nil {
+		o.SecuritySchemes = spec.SecuritySchemes{}
+	}
+	o.SecuritySchemes.AppendBearerAuth(name)
+	return o
 }
 
 func (o *OpenApiConfig) AppendApiKeyAuth(name string, paramIn InWay, paramName string) *OpenApiConfig {
-	return o.AppendSecurityScheme(name, spec.SecurityScheme{
-		Type: "apiKey",
-		In:   paramIn,
-		Name: paramName,
-	})
+	if o.SecuritySchemes == nil {
+		o.SecuritySchemes = spec.SecuritySchemes{}
+	}
+	o.SecuritySchemes.AppendApiKeyAuth(name, paramIn, paramName)
+	return o
 }

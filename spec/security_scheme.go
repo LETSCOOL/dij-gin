@@ -45,6 +45,8 @@ func (s *SecuritySchemes) AppendBearerAuth(name string) *SecuritySchemes {
 	})
 }
 
+// AppendApiKeyAuth appends an api-key scheme with name, this scheme get api-key by paramName from paramIn way.
+// The way paramIn can only be "header", "query" or "cookie" (aka. InHeaderWay, InQueryWay, InCookieWay).
 func (s *SecuritySchemes) AppendApiKeyAuth(name string, paramIn InWay, paramName string) *SecuritySchemes {
 	return s.AppendScheme(name, SecurityScheme{
 		Type: "apiKey",

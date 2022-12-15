@@ -514,14 +514,19 @@ func setupRoutesHandlers(routes WebRoutes, instPtr any, mwHdlWrappers map[string
 		if len(w.Spec.Security) > 0 {
 			attrs := ParseStructTag(w.Spec.Security)
 			//
-			if name, ok := attrs.PreferredName("name", true); ok {
-				props := Map(attrs.AttrsWithValOnly(), func(v StructTagAttr) string {
-					return v.Val
-				})
-				req := spec.SecurityRequirement{}
-				req[name] = props
-				securityRequirement = append(securityRequirement, req)
+			req := spec.SecurityRequirement{}
+			for _, attr := range attrs.Attrs() {
+				if attr.ValOnly {
+					req[attr.Val] = []string{}
+				} else {
+					req[attr.Key] = FilterAndMap(strings.Split(attr.Val, "&"), func(v string) (outData string, is bool) {
+						outData = strings.TrimSpace(v)
+						is = len(outData) > 0
+						return
+					})
+				}
 			}
+			securityRequirement = append(securityRequirement, req)
 		}
 
 		operation := spec.Operation{
