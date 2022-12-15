@@ -4,9 +4,12 @@
 
 package spec
 
+// SecurityScheme describes security scheme for OpenAPI document.
+// https://swagger.io/docs/specification/authentication/
 type SecurityScheme struct {
 	Type             string `json:"type"`
 	Scheme           string `json:"scheme,omitempty"`
+	BearerFormat     string `json:"bearerFormat,omitempty"`
 	In               InWay  `json:"in,omitempty"`
 	Name             string `json:"name,omitempty"`
 	OpenIdConnectUrl string `json:"openIdConnectUrl,omitempty"`
@@ -36,8 +39,9 @@ func (s *SecuritySchemes) AppendBasicAuth(name string) *SecuritySchemes {
 
 func (s *SecuritySchemes) AppendBearerAuth(name string) *SecuritySchemes {
 	return s.AppendScheme(name, SecurityScheme{
-		Type:   "http",
-		Scheme: "bearer",
+		Type:         "http",
+		Scheme:       "bearer",
+		BearerFormat: "JWT",
 	})
 }
 
